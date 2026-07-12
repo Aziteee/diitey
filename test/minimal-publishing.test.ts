@@ -11,7 +11,7 @@ afterEach(async () => {
   for (const process of processes) {
     process.kill();
   }
-  processes.length = 0;
+  await Promise.all(processes.splice(0).map((process) => process.exited));
   await Promise.all(
     temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
   );
@@ -19,7 +19,7 @@ afterEach(async () => {
 
 describe("minimal publishing loop", () => {
   test("site owner can publish one content file at the theme's fixed URL", async () => {
-    const siteRoot = join(import.meta.dir, "fixtures", "minimal-site");
+    const siteRoot = await copyFixtureSite();
     const process = spawnSite(siteRoot);
 
     const address = await readServerAddress(process);
@@ -32,7 +32,46 @@ describe("minimal publishing loop", () => {
     expect(html).toContain("<title>Hello, Diitey</title>");
     expect(html).toContain("<h1>Hello, Diitey</h1>");
     expect(html).toContain("<p>This page came from a Markdown content file.</p>");
+    expect(html).toContain("<h2>What this fixture covers</h2>");
+    expect(html).toContain("<strong>Markdown</strong>");
     expect(html).toContain("</html>");
+  });
+
+  test("theme collection filters drafts and sorts equal dates by content ID", async () => {
+    const siteRoot = await copyFixtureSite();
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+
+    const firstPage = await fetch(`${address}/writing`).then((response) =>
+      response.text(),
+    );
+    const secondPage = await fetch(`${address}/writing?page=2`).then((response) =>
+      response.text(),
+    );
+
+    const alphaPosition = firstPage.indexOf("Alpha article");
+    const zetaPosition = firstPage.indexOf("Zeta article");
+    expect(alphaPosition).toBeGreaterThan(-1);
+    expect(zetaPosition).toBeGreaterThan(alphaPosition);
+    expect(firstPage).toContain('href="/writing/2025/alpha"');
+    expect(firstPage).toContain('href="/writing/2026/zeta"');
+    expect(firstPage).not.toContain("Draft article");
+    expect(secondPage).toContain("<ol></ol>");
+  });
+
+  test("theme publishes nested content routes and excludes filtered drafts", async () => {
+    const siteRoot = await copyFixtureSite();
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+
+    const article = await fetch(`${address}/writing/2025/alpha`);
+    const html = await article.text();
+    const draft = await fetch(`${address}/writing/2026/draft`);
+
+    expect(article.status).toBe(200);
+    expect(html).toContain("<h1>Alpha article</h1>");
+    expect(html).toContain("<p>Alpha is published from a nested content path.</p>");
+    expect(draft.status).toBe(404);
   });
 
   test("site owner cannot start a site whose content ID is not a YAML string", async () => {

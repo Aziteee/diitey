@@ -18,6 +18,26 @@ bun index.ts start --root test/fixtures/minimal-site --port 3000
 
 打开 `http://127.0.0.1:3000/writing/hello` 即可看到由内容文件、主题集合和主题路由生成的 SSR 页面。
 
+修改内容文件后，可在另一个终端中重建有效快照并查看状态：
+
+```bash
+bun index.ts reload --root test/fixtures/minimal-site
+bun index.ts status --root test/fixtures/minimal-site
+```
+
+`start` 会在站点的 `data/diitey.runtime.json` 写入仅当前用户可读的管理连接信息，并在正常退出时删除。管理监听器仅绑定 loopback；`reload` 成功后原子替换有效快照，校验失败或超时则保留原有效快照。
+
+主题可用 glob 声明集合，通过 `where`、`orderBy`、`limit` 和 `paginate` 查询内容，并用源路径参数生成内容路由。集合排序会自动追加内容 ID 升序作为最终排序键；分页读取正整数 `page` 查询参数。内容记录的 `url` 始终指向其 canonical 路由。
+
+可在 `site.config.ts` 中设置 reload 构建超时：
+
+```ts
+export default defineSite({
+  theme: "./themes/minimal/theme.ts",
+  reload: { timeoutMs: 30_000 },
+});
+```
+
 ## 验证
 
 ```bash

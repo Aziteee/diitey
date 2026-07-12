@@ -45,6 +45,7 @@ export async function buildContentRecord(
     id,
     created: normalizeCreated(created),
     sourcePath,
+    url: "",
     attributes: Object.freeze({ ...attributes }),
     html: String(rendered),
   });

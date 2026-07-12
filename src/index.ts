@@ -1,33 +1,68 @@
+export type SchemaType =
+  | "string"
+  | "string?"
+  | "string[]"
+  | "string[]?"
+  | "boolean"
+  | "boolean?"
+  | "number"
+  | "number?";
+
+export type WhereCondition =
+  | string
+  | number
+  | boolean
+  | null
+  | { readonly not: unknown }
+  | { readonly contains: unknown }
+  | { readonly exists: boolean };
+
 export interface SiteDefinition {
   theme: string;
+  reload?: {
+    timeoutMs?: number;
+  };
 }
 
 export interface ContentRecord {
   readonly id: string;
   readonly created: string;
   readonly sourcePath: string;
+  readonly url: string;
   readonly attributes: Readonly<Record<string, unknown>>;
   readonly html: string;
 }
 
 export interface CollectionDefinition {
   readonly from: string;
-  readonly schema: Readonly<Record<string, "string">>;
+  readonly schema: Readonly<Record<string, SchemaType>>;
+  readonly where?: Readonly<Record<string, WhereCondition>>;
+  readonly orderBy?: readonly {
+    readonly field: string;
+    readonly direction: "asc" | "desc";
+  }[];
 }
 
-interface ItemBinding {
+export interface ItemBinding {
   readonly collection: string;
   readonly match: string;
 }
 
-interface PageDefinition {
-  readonly name: string;
-  readonly data: { readonly item: ItemBinding };
+export interface ListBinding {
+  readonly collection: string;
+  readonly limit?: number;
+  readonly paginate?: number;
 }
 
-interface RouteDefinition {
+export interface PageDefinition {
+  readonly name: string;
+  readonly data: Readonly<Record<string, ItemBinding | ListBinding>>;
+}
+
+export interface RouteDefinition {
   readonly path: string;
   readonly page: PageDefinition;
+  readonly canonical: boolean;
 }
 
 export interface ThemeDefinition {
@@ -56,6 +91,10 @@ export function page(
   return { name, data };
 }
 
-export function route(path: string, page: PageDefinition): RouteDefinition {
-  return { path, page };
+export function route(
+  path: string,
+  page: PageDefinition,
+  options: { readonly canonical?: boolean } = {},
+): RouteDefinition {
+  return { path, page, canonical: options.canonical ?? false };
 }
