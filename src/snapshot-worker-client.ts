@@ -101,6 +101,7 @@ function freezeSnapshot(snapshot: ContentSnapshot): ContentSnapshot {
       ),
       runtimePath: snapshot.islands.runtimePath,
     }),
+    contentIds: Object.freeze([...snapshot.contentIds]),
     pages: Object.freeze(
       snapshot.pages.map((page) => Object.freeze({
         ...page,

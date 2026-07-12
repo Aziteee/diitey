@@ -1,5 +1,7 @@
 import type { Pluggable } from "unified";
+import type { Database } from "bun:sqlite";
 export { Island } from "./islands.ts";
+export { PluginNotFoundError } from "./plugins.ts";
 
 export type SchemaType =
   | "string"
@@ -29,11 +31,55 @@ export interface SiteDefinition {
 }
 
 export interface PluginDefinition {
-  readonly name: string;
+  readonly id?: string;
+  readonly name?: string;
+  readonly version?: string;
+  readonly schemaVersion?: number;
+  readonly migrations?: readonly PluginMigration[];
+  readonly services?: Readonly<Record<string, PluginServiceDefinition>>;
+  readonly actions?: Readonly<Record<string, ActionDefinition>>;
   readonly markdown?: {
     readonly remarkPlugins?: readonly Pluggable[];
     readonly rehypePlugins?: readonly Pluggable[];
   };
+}
+
+export interface PluginMigration {
+  readonly id: string;
+  readonly schemaVersion: number;
+  readonly sql: string;
+}
+
+export interface PluginServiceContext {
+  readonly database: Database;
+  readonly signal: AbortSignal;
+  readonly content: {
+    exists(contentId: string): boolean;
+  };
+}
+
+export interface ValueSchema {
+  parse(value: unknown): unknown;
+}
+
+export interface PluginServiceDefinition {
+  readonly input: ValueSchema;
+  readonly output: ValueSchema;
+  handler(
+    input: any,
+    context: PluginServiceContext,
+  ): unknown | Promise<unknown>;
+}
+
+export interface ActionDefinition {
+  readonly service: string;
+  readonly bodyLimitBytes?: number;
+  readonly rateLimit?: {
+    readonly limit: number;
+    readonly windowMs: number;
+  };
+  readonly timeoutMs?: number;
+  readonly credentials?: "cookie";
 }
 
 export interface ContentRecord {
@@ -66,9 +112,18 @@ export interface ListBinding {
   readonly paginate?: number;
 }
 
+export interface ServiceBinding {
+  readonly service: string;
+  readonly input: Readonly<
+    Record<string, unknown | { readonly from: string }>
+  >;
+}
+
 export interface PageDefinition {
   readonly name: string;
-  readonly data: Readonly<Record<string, ItemBinding | ListBinding>>;
+  readonly data: Readonly<
+    Record<string, ItemBinding | ListBinding | ServiceBinding>
+  >;
 }
 
 export interface RouteDefinition {

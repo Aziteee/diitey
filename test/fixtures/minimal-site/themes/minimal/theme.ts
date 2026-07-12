@@ -55,5 +55,11 @@ export default defineTheme({
         items: { collection: "writing", limit: 1 },
       }),
     ),
+    route(
+      "/todos",
+      page("todo-list", {
+        items: { service: "todo.list", input: {} },
+      }),
+    ),
   ],
 });

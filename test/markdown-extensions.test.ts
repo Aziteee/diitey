@@ -28,7 +28,10 @@ describe("Markdown extension loop", () => {
 
       export default defineSite({
         theme: "./themes/minimal/theme.ts",
-        plugins: ["./plugins/callout/plugin.ts"],
+        plugins: [
+          "./plugins/todo-list/plugin.ts",
+          "./plugins/callout/plugin.ts",
+        ],
       });
       `,
     );
@@ -65,7 +68,11 @@ Take care.
 
       export default defineSite({
         theme: "./themes/minimal/theme.ts",
-        plugins: ["./plugins/first.ts", "./plugins/second.ts"],
+        plugins: [
+          "./plugins/todo-list/plugin.ts",
+          "./plugins/first.ts",
+          "./plugins/second.ts",
+        ],
       });
       `,
     );
@@ -103,7 +110,10 @@ Order
 
       export default defineSite({
         theme: "./themes/minimal/theme.ts",
-        plugins: ["./plugins/failing.ts"],
+        plugins: [
+          "./plugins/todo-list/plugin.ts",
+          "./plugins/failing.ts",
+        ],
       });
       `,
     );

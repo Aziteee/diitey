@@ -121,7 +121,7 @@ describe("reliable reload loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeFile(
       join(siteRoot, "site.config.ts"),
-      `import { defineSite } from "../../../src/index.ts";\n\nexport default defineSite({\n  theme: "./themes/minimal/theme.ts",\n  reload: { timeoutMs: 10 },\n});\n`,
+      `import { defineSite } from "../../../src/index.ts";\n\nexport default defineSite({\n  theme: "./themes/minimal/theme.ts",\n  plugins: ["./plugins/todo-list/plugin.ts"],\n  reload: { timeoutMs: 10 },\n});\n`,
     );
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
@@ -205,7 +205,7 @@ describe("reliable reload loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeFile(
       join(siteRoot, "site.config.ts"),
-      `import { defineSite } from "../../../src/index.ts";\n\nexport default defineSite({\n  theme: "./themes/minimal/theme.ts",\n  reload: { timeoutMs: 1_000 },\n});\n`,
+      `import { defineSite } from "../../../src/index.ts";\n\nexport default defineSite({\n  theme: "./themes/minimal/theme.ts",\n  plugins: ["./plugins/todo-list/plugin.ts"],\n  reload: { timeoutMs: 1_000 },\n});\n`,
     );
     await writeFile(
       join(siteRoot, "themes", "minimal", "pages", "article.tsx"),

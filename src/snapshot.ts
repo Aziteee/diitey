@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { type ComponentType } from "preact";
 import type { Pluggable } from "unified";
 import { buildContentRecord } from "./content.ts";
+import { buildPluginRuntime, type PluginRuntime } from "./plugins.ts";
 import {
   buildThemeIslands,
   renderPageWithIslands,
@@ -19,6 +20,7 @@ import type {
   SiteDefinition,
   ThemeDefinition,
   PluginDefinition,
+  ServiceBinding,
   WhereCondition,
 } from "./index.ts";
 
@@ -26,6 +28,11 @@ export interface PublishedPage {
   readonly path: string;
   readonly title: string;
   readonly body: string;
+  readonly dynamic?: {
+    readonly pageName: string;
+    readonly data: Readonly<Record<string, unknown>>;
+    readonly services: readonly (readonly [string, ServiceBinding])[];
+  };
   readonly pagination?: {
     readonly bodies: readonly string[];
     readonly emptyBody: string;
@@ -37,11 +44,14 @@ export interface ContentSnapshot {
   readonly publishedAt: string;
   readonly pages: readonly PublishedPage[];
   readonly islands: BuiltIslands;
+  readonly contentIds: readonly string[];
 }
 
-interface RouteContext {
+export interface RouteContext {
   readonly definition: RouteDefinition;
-  readonly bindings: readonly (readonly [string, ItemBinding | ListBinding])[];
+  readonly bindings: readonly (
+    readonly [string, ItemBinding | ListBinding | ServiceBinding]
+  )[];
   readonly Page: ComponentType<Record<string, unknown>>;
 }
 
@@ -54,6 +64,8 @@ export interface PublishingContext {
     readonly remarkPlugins: readonly Pluggable[];
     readonly rehypePlugins: readonly Pluggable[];
   };
+  readonly plugins: PluginRuntime;
+  readonly pluginDefinitions: readonly PluginDefinition[];
   readonly reloadTimeoutMs: number;
 }
 
@@ -73,6 +85,7 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
       ),
     ),
   );
+  const pluginRuntime = buildPluginRuntime(plugins);
   if (theme.routes.length === 0) {
     throw new Error("Theme must declare at least one route");
   }
@@ -85,8 +98,11 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
         throw new Error(`Theme page ${definition.page.name} must declare data`);
       }
       for (const [, binding] of bindings) {
-        if (!theme.collections[binding.collection]) {
+        if (!("service" in binding) && !theme.collections[binding.collection]) {
           throw new Error(`Unknown collection: ${binding.collection}`);
+        }
+        if ("service" in binding && !pluginRuntime.services[binding.service]) {
+          throw new Error(`Unknown plugin service: ${binding.service}`);
         }
       }
       if (bindings.filter(([, binding]) => "match" in binding).length > 1) {
@@ -128,6 +144,8 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
         plugins.flatMap((plugin) => plugin.markdown?.rehypePlugins ?? []),
       ),
     }),
+    plugins: pluginRuntime,
+    pluginDefinitions: Object.freeze(plugins),
     reloadTimeoutMs,
   });
 }
@@ -181,7 +199,15 @@ export function buildSnapshot(
   const pages: PublishedPage[] = [];
   const seenUrls = new Map<string, string>();
   for (const route of context.routes) {
-    const itemEntry = route.bindings.find(([, binding]) => "match" in binding) as
+    const contentBindings = route.bindings.filter(
+      (entry): entry is readonly [string, ItemBinding | ListBinding] =>
+        !("service" in entry[1]),
+    );
+    const serviceBindings = route.bindings.filter(
+      (entry): entry is readonly [string, ServiceBinding] =>
+        "service" in entry[1],
+    );
+    const itemEntry = contentBindings.find(([, binding]) => "match" in binding) as
       | readonly [string, ItemBinding]
       | undefined;
     if (itemEntry) {
@@ -192,7 +218,7 @@ export function buildSnapshot(
           continue;
         }
         const path = buildRoutePath(route.definition.path, parameters);
-        const data = buildPageData(route.bindings, publishedByCollection, {
+        const data = buildPageData(contentBindings, publishedByCollection, {
           name: itemName,
           item,
         });
@@ -207,9 +233,20 @@ export function buildSnapshot(
                 : "Diitey",
             body: renderPageWithIslands(
               route.Page,
-              data,
+              serviceBindings.length === 0
+                ? data
+                : { ...data, ...emptyServiceData(serviceBindings) },
               context.islands,
             ),
+            ...(serviceBindings.length === 0
+              ? {}
+              : {
+                  dynamic: Object.freeze({
+                    pageName: route.definition.page.name,
+                    data: Object.freeze(data),
+                    services: Object.freeze(serviceBindings),
+                  }),
+                }),
           }),
           item.sourcePath,
         );
@@ -235,6 +272,7 @@ export function buildSnapshot(
     publishedAt: new Date().toISOString(),
     pages: Object.freeze(pages),
     islands: context.islands,
+    contentIds: Object.freeze(records.map((record) => record.id)),
   });
 }
 
@@ -322,7 +360,15 @@ function buildCollectionPage(
   collections: Readonly<Record<string, readonly ContentRecord[]>>,
   islands: BuiltIslands,
 ): PublishedPage {
-  const paginated = route.bindings.filter(
+  const contentBindings = route.bindings.filter(
+    (entry): entry is readonly [string, ItemBinding | ListBinding] =>
+      !("service" in entry[1]),
+  );
+  const serviceBindings = route.bindings.filter(
+    (entry): entry is readonly [string, ServiceBinding] =>
+      "service" in entry[1],
+  );
+  const paginated = contentBindings.filter(
     ([, binding]) => !("match" in binding) && binding.paginate !== undefined,
   ) as readonly (readonly [string, ListBinding])[];
   if (paginated.length > 1) {
@@ -333,15 +379,33 @@ function buildCollectionPage(
   const paginatedEntry = paginated[0];
   const path = normalizeRoutePath(route.definition.path);
   if (!paginatedEntry) {
+    const data = buildPageData(contentBindings, collections);
     return Object.freeze({
       path,
       title: "Diitey",
       body: renderPageWithIslands(
         route.Page,
-        buildPageData(route.bindings, collections),
+        serviceBindings.length === 0
+          ? data
+          : { ...data, ...emptyServiceData(serviceBindings) },
         islands,
       ),
+      ...(serviceBindings.length === 0
+        ? {}
+        : {
+            dynamic: Object.freeze({
+              pageName: route.definition.page.name,
+              data: Object.freeze(data),
+              services: Object.freeze(serviceBindings),
+            }),
+          }),
     });
+  }
+
+  if (serviceBindings.length > 0) {
+    throw new Error(
+      `Theme route ${route.definition.path} cannot combine pagination and plugin services`,
+    );
   }
 
   const [bindingName, binding] = paginatedEntry;
@@ -357,7 +421,7 @@ function buildCollectionPage(
   const renderPage = (items: readonly ContentRecord[]) =>
     renderPageWithIslands(
       route.Page,
-      buildPageData(route.bindings, collections, {
+      buildPageData(contentBindings, collections, {
         name: bindingName,
         items,
       }),
@@ -378,6 +442,12 @@ function buildCollectionPage(
       emptyBody,
     }),
   });
+}
+
+function emptyServiceData(
+  bindings: readonly (readonly [string, ServiceBinding])[],
+): Record<string, unknown> {
+  return Object.fromEntries(bindings.map(([name]) => [name, []]));
 }
 
 function buildPageData(
