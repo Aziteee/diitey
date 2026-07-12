@@ -1,3 +1,5 @@
+import type { Pluggable } from "unified";
+
 export type SchemaType =
   | "string"
   | "string?"
@@ -19,8 +21,17 @@ export type WhereCondition =
 
 export interface SiteDefinition {
   theme: string;
+  plugins?: readonly string[];
   reload?: {
     timeoutMs?: number;
+  };
+}
+
+export interface PluginDefinition {
+  readonly name: string;
+  readonly markdown?: {
+    readonly remarkPlugins?: readonly Pluggable[];
+    readonly rehypePlugins?: readonly Pluggable[];
   };
 }
 
@@ -75,6 +86,10 @@ export function defineSite(definition: SiteDefinition): SiteDefinition {
 }
 
 export function defineTheme(definition: ThemeDefinition): ThemeDefinition {
+  return definition;
+}
+
+export function definePlugin(definition: PluginDefinition): PluginDefinition {
   return definition;
 }
 

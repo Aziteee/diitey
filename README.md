@@ -38,6 +38,20 @@ export default defineSite({
 });
 ```
 
+插件可以按配置顺序声明静态 Markdown 扩展：
+
+```ts
+export default defineSite({
+  theme: "./themes/minimal/theme.ts",
+  plugins: ["./plugins/callout/plugin.ts"],
+});
+```
+
+仓库的最小站点包含一个 callout 示例插件，可将
+`:::callout{type="warning"}` 转换为语义化的静态 `aside`。remark 扩展在
+`remark-rehype` 之前执行，rehype 扩展在其后执行；任何转换异常都会使本次
+reload 失败并保留原有效快照。
+
 ## 验证
 
 ```bash

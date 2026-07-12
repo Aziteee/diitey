@@ -3,6 +3,7 @@ import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { h, type ComponentType } from "preact";
 import renderToString from "preact-render-to-string";
+import type { Pluggable } from "unified";
 import { buildContentRecord } from "./content.ts";
 import type {
   CollectionDefinition,
@@ -13,6 +14,7 @@ import type {
   SchemaType,
   SiteDefinition,
   ThemeDefinition,
+  PluginDefinition,
   WhereCondition,
 } from "./index.ts";
 
@@ -42,6 +44,10 @@ export interface PublishingContext {
   readonly contentRoot: string;
   readonly collections: Readonly<Record<string, CollectionDefinition>>;
   readonly routes: readonly RouteContext[];
+  readonly markdown: {
+    readonly remarkPlugins: readonly Pluggable[];
+    readonly rehypePlugins: readonly Pluggable[];
+  };
   readonly reloadTimeoutMs: number;
 }
 
@@ -52,6 +58,14 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
   const config = await importDefault<SiteDefinition>(configPath, "site config");
   const themePath = resolve(root, config.theme);
   const theme = await importDefault<ThemeDefinition>(themePath, "theme");
+  const plugins = await Promise.all(
+    (config.plugins ?? []).map((pluginPath) =>
+      importDefault<PluginDefinition>(
+        resolve(root, pluginPath),
+        `plugin ${pluginPath}`,
+      ),
+    ),
+  );
   if (theme.routes.length === 0) {
     throw new Error("Theme must declare at least one route");
   }
@@ -98,6 +112,14 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
     contentRoot: resolve(root, "content"),
     collections: theme.collections,
     routes: Object.freeze(routes),
+    markdown: Object.freeze({
+      remarkPlugins: Object.freeze(
+        plugins.flatMap((plugin) => plugin.markdown?.remarkPlugins ?? []),
+      ),
+      rehypePlugins: Object.freeze(
+        plugins.flatMap((plugin) => plugin.markdown?.rehypePlugins ?? []),
+      ),
+    }),
     reloadTimeoutMs,
   });
 }
@@ -118,6 +140,7 @@ export async function buildContentSnapshot(
       buildContentRecord(
         resolve(context.contentRoot, ...sourcePath.split("/")),
         sourcePath,
+        context.markdown,
       ),
     ),
   );

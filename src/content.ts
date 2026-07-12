@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { unified } from "unified";
+import { unified, type Pluggable } from "unified";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
@@ -12,6 +12,10 @@ const frontMatterPattern = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 export async function buildContentRecord(
   filePath: string,
   sourcePath: string,
+  extensions: {
+    readonly remarkPlugins: readonly Pluggable[];
+    readonly rehypePlugins: readonly Pluggable[];
+  },
 ): Promise<ContentRecord> {
   const markdown = await readFile(filePath, "utf8");
   const frontMatter = markdown.match(frontMatterPattern);
@@ -37,7 +41,9 @@ export async function buildContentRecord(
   const rendered = await unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"])
+    .use([...extensions.remarkPlugins])
     .use(remarkRehype, { allowDangerousHtml: true })
+    .use([...extensions.rehypePlugins])
     .use(rehypeStringify, { allowDangerousHtml: true })
     .process(markdown);
 
