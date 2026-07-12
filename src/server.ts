@@ -48,6 +48,22 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
       if (request.method !== "GET") {
         return new Response("Method Not Allowed", { status: 405 });
       }
+      if (url.pathname === "/assets/island-manifest.json") {
+        return Response.json(requestSnapshot.islands.manifest, {
+          headers: { "cache-control": "no-store" },
+        });
+      }
+      const islandAsset = requestSnapshot.islands.assets.find(
+        (candidate) => candidate.path === url.pathname,
+      );
+      if (islandAsset) {
+        return new Response(islandAsset.body, {
+          headers: {
+            "content-type": "text/javascript; charset=utf-8",
+            "cache-control": "public, max-age=31536000, immutable",
+          },
+        });
+      }
       const page = requestSnapshot.pages.find(
         (candidate) => normalizePath(url.pathname) === candidate.path,
       );
@@ -70,7 +86,10 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
       }
       const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(page.title)}</title></head><body>${body}</body></html>`;
       return new Response(html, {
-        headers: { "content-type": "text/html; charset=utf-8" },
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+        },
       });
     },
   });

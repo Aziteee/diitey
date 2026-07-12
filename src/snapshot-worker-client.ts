@@ -94,6 +94,13 @@ export class SnapshotWorker {
 function freezeSnapshot(snapshot: ContentSnapshot): ContentSnapshot {
   return Object.freeze({
     ...snapshot,
+    islands: Object.freeze({
+      manifest: Object.freeze({ ...snapshot.islands.manifest }),
+      assets: Object.freeze(
+        snapshot.islands.assets.map((asset) => Object.freeze({ ...asset })),
+      ),
+      runtimePath: snapshot.islands.runtimePath,
+    }),
     pages: Object.freeze(
       snapshot.pages.map((page) => Object.freeze({
         ...page,

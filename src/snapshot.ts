@@ -1,10 +1,14 @@
 import { readdir } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { h, type ComponentType } from "preact";
-import renderToString from "preact-render-to-string";
+import { type ComponentType } from "preact";
 import type { Pluggable } from "unified";
 import { buildContentRecord } from "./content.ts";
+import {
+  buildThemeIslands,
+  renderPageWithIslands,
+  type BuiltIslands,
+} from "./islands.ts";
 import type {
   CollectionDefinition,
   ContentRecord,
@@ -32,6 +36,7 @@ export interface ContentSnapshot {
   readonly version: string;
   readonly publishedAt: string;
   readonly pages: readonly PublishedPage[];
+  readonly islands: BuiltIslands;
 }
 
 interface RouteContext {
@@ -44,6 +49,7 @@ export interface PublishingContext {
   readonly contentRoot: string;
   readonly collections: Readonly<Record<string, CollectionDefinition>>;
   readonly routes: readonly RouteContext[];
+  readonly islands: BuiltIslands;
   readonly markdown: {
     readonly remarkPlugins: readonly Pluggable[];
     readonly rehypePlugins: readonly Pluggable[];
@@ -58,6 +64,7 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
   const config = await importDefault<SiteDefinition>(configPath, "site config");
   const themePath = resolve(root, config.theme);
   const theme = await importDefault<ThemeDefinition>(themePath, "theme");
+  const islands = await buildThemeIslands(themePath);
   const plugins = await Promise.all(
     (config.plugins ?? []).map((pluginPath) =>
       importDefault<PluginDefinition>(
@@ -112,6 +119,7 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
     contentRoot: resolve(root, "content"),
     collections: theme.collections,
     routes: Object.freeze(routes),
+    islands,
     markdown: Object.freeze({
       remarkPlugins: Object.freeze(
         plugins.flatMap((plugin) => plugin.markdown?.remarkPlugins ?? []),
@@ -197,7 +205,11 @@ export function buildSnapshot(
               typeof item.attributes.title === "string"
                 ? item.attributes.title
                 : "Diitey",
-            body: renderToString(h(route.Page, data)),
+            body: renderPageWithIslands(
+              route.Page,
+              data,
+              context.islands,
+            ),
           }),
           item.sourcePath,
         );
@@ -210,7 +222,11 @@ export function buildSnapshot(
         `Route ${route.definition.path} has parameters but no item binding`,
       );
     }
-    const page = buildCollectionPage(route, publishedByCollection);
+    const page = buildCollectionPage(
+      route,
+      publishedByCollection,
+      context.islands,
+    );
     addPage(pages, seenUrls, page, `theme route ${route.definition.path}`);
   }
 
@@ -218,6 +234,7 @@ export function buildSnapshot(
     version,
     publishedAt: new Date().toISOString(),
     pages: Object.freeze(pages),
+    islands: context.islands,
   });
 }
 
@@ -303,6 +320,7 @@ function buildCanonicalUrls(
 function buildCollectionPage(
   route: RouteContext,
   collections: Readonly<Record<string, readonly ContentRecord[]>>,
+  islands: BuiltIslands,
 ): PublishedPage {
   const paginated = route.bindings.filter(
     ([, binding]) => !("match" in binding) && binding.paginate !== undefined,
@@ -318,8 +336,10 @@ function buildCollectionPage(
     return Object.freeze({
       path,
       title: "Diitey",
-      body: renderToString(
-        h(route.Page, buildPageData(route.bindings, collections)),
+      body: renderPageWithIslands(
+        route.Page,
+        buildPageData(route.bindings, collections),
+        islands,
       ),
     });
   }
@@ -335,14 +355,13 @@ function buildCollectionPage(
   }
   const selected = applyLimit(collections[binding.collection] ?? [], binding.limit);
   const renderPage = (items: readonly ContentRecord[]) =>
-    renderToString(
-      h(
-        route.Page,
-        buildPageData(route.bindings, collections, {
-          name: bindingName,
-          items,
-        }),
-      ),
+    renderPageWithIslands(
+      route.Page,
+      buildPageData(route.bindings, collections, {
+        name: bindingName,
+        items,
+      }),
+      islands,
     );
   const bodies = Array.from(
     { length: Math.ceil(selected.length / pageSize) },
@@ -652,6 +671,9 @@ function validateRoutePatterns(routes: readonly RouteDefinition[]): void {
     const normalized = normalizeRoutePath(route.path);
     if (!normalized.startsWith("/")) {
       throw new Error(`Route path must start with /: ${route.path}`);
+    }
+    if (normalized === "/assets" || normalized.startsWith("/assets/")) {
+      throw new Error(`Theme route cannot use reserved path ${route.path}`);
     }
     const shape = normalized
       .split("/")

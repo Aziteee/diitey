@@ -49,5 +49,11 @@ export default defineTheme({
         },
       }),
     ),
+    route(
+      "/island-demo",
+      page("island-demo", {
+        items: { collection: "writing", limit: 1 },
+      }),
+    ),
   ],
 });

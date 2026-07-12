@@ -1,4 +1,5 @@
 import type { Pluggable } from "unified";
+export { Island } from "./islands.ts";
 
 export type SchemaType =
   | "string"
