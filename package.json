@@ -1,0 +1,27 @@
+{
+  "name": "diitey",
+  "module": "index.ts",
+  "scripts": {
+    "start": "bun index.ts start",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "preact": "^10.29.7",
+    "preact-render-to-string": "^6.7.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-frontmatter": "^5.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5",
+    "yaml": "^2.9.0"
+  }
+}
