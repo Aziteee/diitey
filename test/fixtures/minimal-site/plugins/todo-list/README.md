@@ -5,7 +5,7 @@
 - `todo.list`：按“未完成优先、最新优先”列出待办项；
 - `todo.create`：创建待办项；
 - `todo.toggle`：切换完成状态；
-- 一条显式 SQLite 迁移；
+- 一条启动时自动应用的 SQLite 插件迁移；
 - 创建和切换状态所需的核心 Action。
 
 ## 启用插件
@@ -19,11 +19,8 @@ export default defineSite({
 });
 ```
 
-路径应按插件相对于实际站点根目录的位置调整。首次使用时显式安装迁移：
-
-```bash
-bun index.ts plugin install todo-list --root test/fixtures/minimal-site
-```
+路径应按插件相对于实际站点根目录的位置调整。首次启动站点时，核心会在开始
+HTTP 监听前自动应用待处理插件迁移。
 
 ## SSR 列表
 

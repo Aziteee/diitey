@@ -4,7 +4,6 @@ import {
   runManagementCommand,
 } from "./src/management-client.ts";
 import { startSite } from "./src/server.ts";
-import { runPluginMigration } from "./src/plugin-database.ts";
 
 const [, , command, ...args] = process.argv;
 const root = resolve(readOption(args, "--root") ?? process.cwd());
@@ -15,16 +14,9 @@ try {
   } else if (command === "reload" || command === "status") {
     const result = await runManagementCommand(root, command);
     console.log(JSON.stringify(result));
-  } else if (
-    command === "plugin" &&
-    (args[0] === "install" || args[0] === "upgrade") &&
-    args[1]
-  ) {
-    const result = await runPluginMigration(root, args[0], args[1]);
-    console.log(JSON.stringify(result));
   } else {
     throw new Error(
-      "Usage: diitey <start|reload|status|plugin install <id>|plugin upgrade <id>> [--root <directory>] [--port <number>]",
+      "Usage: diitey <start|reload|status> [--root <directory>] [--port <number>]",
     );
   }
 } catch (error) {

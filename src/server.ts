@@ -11,7 +11,7 @@ import {
   PluginNotFoundError,
 } from "./plugins.ts";
 import { renderPageWithIslands } from "./islands.ts";
-import { openPluginDatabase } from "./plugin-database.ts";
+import { preparePluginDatabase } from "./plugin-database.ts";
 
 interface StartOptions {
   root: string;
@@ -36,11 +36,11 @@ interface RunningSite {
 
 export async function startSite(options: StartOptions): Promise<RunningSite> {
   const context = await loadPublishingContext(options.root);
-  const pluginDatabase = await openPluginDatabase(
+  let snapshot = await buildInitialSnapshot(context);
+  const pluginDatabase = await preparePluginDatabase(
     options.root,
     context.pluginDefinitions,
   );
-  let snapshot = await buildInitialSnapshot(context);
   const snapshotWorker = await SnapshotWorker.create(options.root);
   let lastAttempt: BuildAttempt = {
     buildId: snapshot.version,

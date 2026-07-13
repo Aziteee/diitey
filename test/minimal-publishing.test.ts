@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 type SiteProcess = Bun.Subprocess<"ignore", "pipe", "pipe">;
@@ -73,6 +73,77 @@ describe("minimal publishing loop", () => {
     expect(html).toContain("<p>Alpha is published from a nested content path.</p>");
     expect(draft.status).toBe(404);
   });
+
+  test("site owner can load an installed theme package and its manually managed dependency", async () => {
+    const siteRoot = await copyFixtureSite();
+    const themeRoot = join(siteRoot, "node_modules", "@fixture", "theme");
+    const helperRoot = join(
+      siteRoot,
+      "node_modules",
+      "@fixture",
+      "theme-helper",
+    );
+    await mkdir(join(themeRoot, "pages"), { recursive: true });
+    await mkdir(helperRoot, { recursive: true });
+    await writeFile(
+      join(themeRoot, "package.json"),
+      JSON.stringify({
+        name: "@fixture/theme",
+        version: "1.0.0",
+        type: "module",
+        exports: "./theme.ts",
+      }),
+    );
+    await writeFile(
+      join(helperRoot, "package.json"),
+      JSON.stringify({
+        name: "@fixture/theme-helper",
+        version: "1.0.0",
+        type: "module",
+        exports: "./index.ts",
+      }),
+    );
+    await writeFile(
+      join(helperRoot, "index.ts"),
+      `export const decorate = (value: string) => \`Package: \${value}\`;\n`,
+    );
+    await writeFile(
+      join(themeRoot, "theme.ts"),
+      `export default {
+        collections: {
+          writing: { from: "hello.md", schema: { title: "string" } },
+        },
+        routes: [{
+          path: "/package-theme",
+          canonical: false,
+          page: {
+            name: "article",
+            data: { item: { collection: "writing", match: "hello.md" } },
+          },
+        }],
+      };\n`,
+    );
+    await writeFile(
+      join(themeRoot, "pages", "article.tsx"),
+      `import { decorate } from "@fixture/theme-helper";
+      export default function Article({ item }: { item: { attributes: Record<string, unknown> } }) {
+        return <h1>{decorate(String(item.attributes.title))}</h1>;
+      }\n`,
+    );
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `import { defineSite } from "diitey";
+      export default defineSite({ theme: "@fixture/theme" });\n`,
+    );
+
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+    const html = await fetch(`${address}/package-theme`).then((response) =>
+      response.text(),
+    );
+
+    expect(html).toContain("<h1>Package: Hello, Diitey</h1>");
+  }, 10_000);
 
   test("site owner cannot start a site whose content ID is not a YAML string", async () => {
     const siteRoot = await copyFixtureSite();

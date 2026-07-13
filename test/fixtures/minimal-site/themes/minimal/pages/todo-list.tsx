@@ -1,4 +1,4 @@
-import { Island } from "../../../../../../src/index.ts";
+import { Island } from "diitey";
 import TodoList from "../islands/todo-list.tsx";
 
 export interface TodoItem {

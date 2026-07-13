@@ -1,7 +1,7 @@
 import {
   definePlugin,
   PluginNotFoundError,
-} from "../../../../../src/index.ts";
+} from "diitey";
 
 interface TodoItem {
   readonly id: number;

@@ -47,6 +47,19 @@ export default defineSite({
 });
 ```
 
+主题和插件引用既可以是站点内的本地源码路径，也可以是已经由 Bun 安装的包名：
+
+```ts
+export default defineSite({
+  theme: "./themes/local/theme.ts",
+  plugins: ["@diitey/plugin-comments"],
+});
+```
+
+Diitey 不安装、升级或删除扩展包。站点所有者直接维护站点根目录的
+`package.json` 和 `bun.lock`，并使用 `bun install` 或 `bun add` 管理扩展及其
+额外依赖。本地主题和插件使用的额外依赖同样安装在站点根目录。
+
 仓库的最小站点包含一个 callout 示例插件，可将
 `:::callout{type="warning"}` 转换为语义化的静态 `aside`。remark 扩展在
 `remark-rehype` 之前执行，rehype 扩展在其后执行；任何转换异常都会使本次
@@ -58,15 +71,12 @@ JSON 输入输出校验、64 KiB 全局请求体上限、Origin/CSRF、进程内
 和标准错误响应。
 
 动态数据保存在 `data/site.sqlite`。带数据库结构的插件必须声明稳定 ID、版本、
-schema 版本和显式迁移；启动与 reload 只检查兼容性，不会自动迁移：
+schema 版本和插件迁移。服务启动会在初始内容快照和 islands 校验成功后、开始
+HTTP 监听前自动应用所有待处理迁移；内容 reload 不执行迁移。
 
-```bash
-bun index.ts plugin install comments --root my-site
-bun index.ts plugin upgrade comments --root my-site
-```
-
-核心记录每个已执行迁移的 ID、SQL 校验和与执行时间。同一迁移可安全重复执行；
-已执行迁移被改写或插件代码与数据库 schema 不兼容时，命令或服务启动会明确失败。
+核心记录每个已执行迁移的 ID、SQL 校验和与执行时间。全部待处理迁移在同一个
+事务中执行；任一迁移失败都会整体回滚并终止启动。已执行迁移被改写，或者数据库
+schema 高于当前插件支持版本时，服务启动会明确失败。
 
 最小站点内置了一个包含列表、创建、切换状态和 SQLite 迁移的简单后端示例：
 [`plugins/todo-list`](test/fixtures/minimal-site/plugins/todo-list/README.md)。

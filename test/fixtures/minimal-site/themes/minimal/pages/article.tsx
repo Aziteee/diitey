@@ -1,4 +1,4 @@
-import type { ContentRecord } from "../../../../../../src/index.ts";
+import type { ContentRecord } from "diitey";
 
 interface ArticleProps {
   item: ContentRecord;

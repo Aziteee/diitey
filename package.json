@@ -1,6 +1,9 @@
 {
   "name": "diitey",
   "module": "index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "start": "bun index.ts start",
     "test": "bun test",

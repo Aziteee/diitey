@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { type ComponentType } from "preact";
 import type { Pluggable } from "unified";
 import { buildContentRecord } from "./content.ts";
+import { loadSiteExtensions } from "./extensions.ts";
 import { buildPluginRuntime, type PluginRuntime } from "./plugins.ts";
 import {
   buildThemeIslands,
@@ -17,8 +18,6 @@ import type {
   ListBinding,
   RouteDefinition,
   SchemaType,
-  SiteDefinition,
-  ThemeDefinition,
   PluginDefinition,
   ServiceBinding,
   WhereCondition,
@@ -72,19 +71,12 @@ export interface PublishingContext {
 const defaultReloadTimeoutMs = 30_000;
 
 export async function loadPublishingContext(root: string): Promise<PublishingContext> {
-  const configPath = resolve(root, "site.config.ts");
-  const config = await importDefault<SiteDefinition>(configPath, "site config");
-  const themePath = resolve(root, config.theme);
-  const theme = await importDefault<ThemeDefinition>(themePath, "theme");
+  const extensions = await loadSiteExtensions(root);
+  const { config } = extensions;
+  const themePath = extensions.theme.entryPath;
+  const theme = extensions.theme.definition;
   const islands = await buildThemeIslands(themePath);
-  const plugins = await Promise.all(
-    (config.plugins ?? []).map((pluginPath) =>
-      importDefault<PluginDefinition>(
-        resolve(root, pluginPath),
-        `plugin ${pluginPath}`,
-      ),
-    ),
-  );
+  const plugins = extensions.plugins.map((plugin) => plugin.definition);
   const pluginRuntime = buildPluginRuntime(plugins);
   if (theme.routes.length === 0) {
     throw new Error("Theme must declare at least one route");

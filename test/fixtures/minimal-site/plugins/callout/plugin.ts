@@ -1,5 +1,5 @@
 import remarkDirective from "remark-directive";
-import { definePlugin } from "../../../../../src/index.ts";
+import { definePlugin } from "diitey";
 
 interface MarkdownNode {
   type: string;

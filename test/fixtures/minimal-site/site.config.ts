@@ -1,4 +1,4 @@
-import { defineSite } from "../../../src/index.ts";
+import { defineSite } from "diitey";
 
 export default defineSite({
   theme: "./themes/minimal/theme.ts",

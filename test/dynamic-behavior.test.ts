@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { Database } from "bun:sqlite";
 
 type SiteProcess = Bun.Subprocess<"ignore", "pipe", "pipe">;
 
@@ -21,7 +22,6 @@ describe("dynamic behavior loop", () => {
   test("the todo-list example migrates, creates, toggles, and lists items", async () => {
     const siteRoot = await copyFixtureSite();
     await enableTodoListExample(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "todo-list"])).exitCode).toBe(0);
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
     const action = (name: string, input: unknown) =>
@@ -109,12 +109,11 @@ describe("dynamic behavior loop", () => {
     expect(after).toContain("<li>First!</li>");
   }, 10_000);
 
-  test("plugin install migrates SQLite before comments can persist", async () => {
+  test("startup migrates SQLite before comments can persist", async () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
 
-    const installed = await runCli(siteRoot, ["plugin", "install", "comments"]);
     const firstSite = spawnSite(siteRoot);
     const firstAddress = await readServerAddress(firstSite);
     const created = await fetch(`${firstAddress}/_action/comments.create`, {
@@ -135,8 +134,6 @@ describe("dynamic behavior loop", () => {
       response.text(),
     );
 
-    expect(installed.exitCode).toBe(0);
-    expect(installed.output).toContain('"status":"succeeded"');
     expect(created.status).toBe(201);
     expect(html).toContain("<li>Stored</li>");
   }, 10_000);
@@ -145,7 +142,6 @@ describe("dynamic behavior loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
 
@@ -172,7 +168,6 @@ describe("dynamic behavior loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
 
@@ -196,7 +191,6 @@ describe("dynamic behavior loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
 
@@ -220,7 +214,6 @@ describe("dynamic behavior loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
     const submit = (body: string) =>
@@ -250,7 +243,6 @@ describe("dynamic behavior loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
 
@@ -277,7 +269,6 @@ describe("dynamic behavior loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
 
@@ -306,7 +297,6 @@ describe("dynamic behavior loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
     const pluginPath = join(siteRoot, "plugins", "comments", "plugin.ts");
     const pluginSource = await readFile(pluginPath, "utf8");
     await writeFile(
@@ -339,7 +329,6 @@ describe("dynamic behavior loop", () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
-    expect((await runCli(siteRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
     const pluginPath = join(siteRoot, "plugins", "comments", "plugin.ts");
     const pluginSource = await readFile(pluginPath, "utf8");
     await writeFile(
@@ -367,40 +356,61 @@ describe("dynamic behavior loop", () => {
     await writeSqliteCommentsPlugin(siteRoot);
     await enableComments(siteRoot);
 
-    const first = await runCli(siteRoot, ["plugin", "install", "comments"]);
-    const repeated = await runCli(siteRoot, ["plugin", "install", "comments"]);
+    const first = spawnSite(siteRoot);
+    await readServerAddress(first);
+    await stopSite(first);
+    const repeated = spawnSite(siteRoot);
+    await readServerAddress(repeated);
+    await stopSite(repeated);
     await writeSqliteCommentsPlugin(
       siteRoot,
       "CREATE TABLE comments (id INTEGER PRIMARY KEY, content_id TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL) ",
     );
-    const changed = await runCli(siteRoot, ["plugin", "upgrade", "comments"]);
+    const changedError = await readStartupError(spawnSite(siteRoot));
 
-    expect(first.exitCode).toBe(0);
-    expect(repeated.exitCode).toBe(0);
-    expect(JSON.parse(repeated.output).applied).toEqual([]);
-    expect(changed.exitCode).toBe(1);
-    expect(changed.error).toContain("Migration checksum changed");
+    expect(changedError).toContain("Migration checksum changed");
   }, 10_000);
 
-  test("startup rejects plugin schema mismatches in either direction", async () => {
-    const missingRoot = await copyFixtureSite();
-    await writeSqliteCommentsPlugin(missingRoot);
-    await enableComments(missingRoot);
-    const missingError = await readStartupError(spawnSite(missingRoot));
-
+  test("startup rejects a database schema newer than the configured plugin", async () => {
     const newerRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(newerRoot);
     await enableComments(newerRoot);
-    expect((await runCli(newerRoot, ["plugin", "install", "comments"])).exitCode).toBe(0);
+    const initial = spawnSite(newerRoot);
+    await readServerAddress(initial);
+    await stopSite(initial);
     const pluginPath = join(newerRoot, "plugins", "comments", "plugin.ts");
     const pluginSource = await readFile(pluginPath, "utf8");
     await writeFile(pluginPath, pluginSource.replace("schemaVersion: 1", "schemaVersion: 0"));
     const newerError = await readStartupError(spawnSite(newerRoot));
 
-    expect(missingError).toContain("requires schema 1, database is 0");
-    expect(missingError).toContain("diitey plugin upgrade comments");
     expect(newerError).toContain("requires schema 0, database is 1");
   }, 10_000);
+
+  test("startup rolls back all pending migrations when one migration fails", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeFailingMigrationPlugin(siteRoot);
+    await enableFailingMigrationPlugin(siteRoot);
+
+    const error = await readStartupError(spawnSite(siteRoot));
+    const database = new Database(join(siteRoot, "data", "site.sqlite"));
+    const table = database
+      .query<{ name: string }, []>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'first_migration_table'",
+      )
+      .get();
+    database.close();
+
+    expect(error).toContain("no such table");
+    expect(table).toBeNull();
+  }, 10_000);
+
+  test("plugin package management commands are not exposed", async () => {
+    const siteRoot = await copyFixtureSite();
+    const result = await runCli(siteRoot, ["plugin", "install", "todo-list"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("Usage: diitey <start|reload|status>");
+  });
 });
 
 async function writeMemoryCommentsPlugin(siteRoot: string): Promise<void> {
@@ -554,6 +564,46 @@ async function writeSqliteCommentsPlugin(
   );
 }
 
+async function writeFailingMigrationPlugin(siteRoot: string): Promise<void> {
+  const pluginRoot = join(siteRoot, "plugins", "failing-migration");
+  await mkdir(pluginRoot, { recursive: true });
+  await writeFile(
+    join(pluginRoot, "plugin.ts"),
+    `import { definePlugin } from "diitey";
+    export default definePlugin({
+      id: "failing-migration",
+      version: "1.0.0",
+      schemaVersion: 2,
+      migrations: [
+        {
+          id: "0001-create-table",
+          schemaVersion: 1,
+          sql: "CREATE TABLE first_migration_table (id INTEGER PRIMARY KEY)",
+        },
+        {
+          id: "0002-fail",
+          schemaVersion: 2,
+          sql: "INSERT INTO missing_table (id) VALUES (1)",
+        },
+      ],
+    });\n`,
+  );
+}
+
+async function enableFailingMigrationPlugin(siteRoot: string): Promise<void> {
+  await writeFile(
+    join(siteRoot, "site.config.ts"),
+    `import { defineSite } from "diitey";
+    export default defineSite({
+      theme: "./themes/minimal/theme.ts",
+      plugins: [
+        "./plugins/todo-list/plugin.ts",
+        "./plugins/failing-migration/plugin.ts",
+      ],
+    });\n`,
+  );
+}
+
 async function enableComments(siteRoot: string): Promise<void> {
   await mkdir(join(siteRoot, "themes", "minimal", "islands"), {
     recursive: true,
@@ -667,6 +717,7 @@ async function copyFixtureSite(): Promise<string> {
   await cp(join(import.meta.dir, "fixtures", "minimal-site"), root, {
     recursive: true,
   });
+  await rm(join(root, "data", "site.sqlite"), { force: true });
   return root;
 }
 
@@ -701,6 +752,13 @@ function spawnSite(siteRoot: string): SiteProcess {
   );
   processes.push(process);
   return process;
+}
+
+async function stopSite(process: SiteProcess): Promise<void> {
+  process.kill();
+  await process.exited;
+  const index = processes.indexOf(process);
+  if (index !== -1) processes.splice(index, 1);
 }
 
 async function readServerAddress(process: SiteProcess): Promise<string> {

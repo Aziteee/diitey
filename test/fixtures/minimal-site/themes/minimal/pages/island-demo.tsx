@@ -1,4 +1,4 @@
-import { Island } from "../../../../../../src/index.ts";
+import { Island } from "diitey";
 import Counter from "../islands/counter.tsx";
 
 export default function IslandDemo() {

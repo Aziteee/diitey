@@ -3,7 +3,7 @@ import {
   defineTheme,
   page,
   route,
-} from "../../../../../src/index.ts";
+} from "diitey";
 
 export default defineTheme({
   collections: {
