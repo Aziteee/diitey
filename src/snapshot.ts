@@ -3,6 +3,7 @@ import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { type ComponentType } from "preact";
 import type { Pluggable } from "unified";
+import picomatch from "picomatch";
 import { buildContentRecord } from "./content.ts";
 import { loadSiteExtensions } from "./extensions.ts";
 import { buildPluginRuntime, type PluginRuntime } from "./plugins.ts";
@@ -57,6 +58,7 @@ export interface RouteContext {
 export interface PublishingContext {
   readonly contentRoot: string;
   readonly collections: Readonly<Record<string, CollectionDefinition>>;
+  readonly collectionMatchers: Readonly<Record<string, (sourcePath: string) => boolean>>;
   readonly routes: readonly RouteContext[];
   readonly islands: BuiltIslands;
   readonly markdown: {
@@ -75,6 +77,7 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
   const { config } = extensions;
   const themePath = extensions.theme.entryPath;
   const theme = extensions.theme.definition;
+  const collectionMatchers = compileCollectionMatchers(theme.collections);
   const islands = await buildThemeIslands(themePath);
   const plugins = extensions.plugins.map((plugin) => plugin.definition);
   const pluginRuntime = buildPluginRuntime(plugins);
@@ -123,6 +126,7 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
   return Object.freeze({
     contentRoot: resolve(root, "content"),
     collections: theme.collections,
+    collectionMatchers,
     routes: Object.freeze(routes),
     islands,
     markdown: Object.freeze({
@@ -168,7 +172,11 @@ export function buildSnapshot(
   version: string = crypto.randomUUID(),
 ): ContentSnapshot {
   validateUniqueContentIds(records);
-  const selectedByCollection = selectCollections(context.collections, records);
+  const selectedByCollection = selectCollections(
+    context.collections,
+    context.collectionMatchers,
+    records,
+  );
   const canonicalUrls = buildCanonicalUrls(context.routes, selectedByCollection);
   const publishedByCollection = Object.fromEntries(
     Object.entries(selectedByCollection).map(([name, selected]) => [
@@ -267,12 +275,15 @@ export function buildSnapshot(
 
 function selectCollections(
   definitions: Readonly<Record<string, CollectionDefinition>>,
+  matchers: Readonly<Record<string, (sourcePath: string) => boolean>>,
   records: readonly ContentRecord[],
 ): Readonly<Record<string, readonly ContentRecord[]>> {
   return Object.fromEntries(
     Object.entries(definitions).map(([name, definition]) => {
+      const matches = matchers[name];
+      if (!matches) throw new Error(`Missing collection matcher: ${name}`);
       const selected = records
-        .filter((record) => matchesGlob(definition.from, record.sourcePath))
+        .filter((record) => matches(record.sourcePath))
         .map((record) => {
           const immutable = Object.freeze({
             ...record,
@@ -647,7 +658,10 @@ async function scanContentFiles(contentRoot: string): Promise<string[]> {
   });
   return entries
     .filter(
-      (entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".md"),
+      (entry) =>
+        entry.isFile() &&
+        (entry.name.toLowerCase().endsWith(".md") ||
+          entry.name.toLowerCase().endsWith(".mdx")),
     )
     .map((entry) =>
       normalizeSourcePath(
@@ -665,12 +679,29 @@ function normalizeSourcePath(path: string): string {
   return path.replaceAll("\\", "/");
 }
 
-function matchesGlob(pattern: string, sourcePath: string): boolean {
-  const expression = escapeRegExp(normalizeSourcePath(pattern))
-    .replaceAll("\\*\\*/", "(?:.*/)?")
-    .replaceAll("\\*\\*", ".*")
-    .replaceAll("\\*", "[^/]*");
-  return new RegExp(`^${expression}$`).test(normalizeSourcePath(sourcePath));
+function compileCollectionMatchers(
+  definitions: Readonly<Record<string, CollectionDefinition>>,
+): Readonly<Record<string, (sourcePath: string) => boolean>> {
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(definitions).map(([name, definition]) => {
+        try {
+          const matches = picomatch(normalizeSourcePath(definition.from), {
+            strictBrackets: true,
+          });
+          return [
+            name,
+            (sourcePath: string) => matches(normalizeSourcePath(sourcePath)),
+          ];
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Invalid collection glob ${name} (${definition.from}): ${message}`,
+          );
+        }
+      }),
+    ),
+  );
 }
 
 function matchPathPattern(

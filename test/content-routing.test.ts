@@ -377,6 +377,108 @@ describe("complete content and routing model", () => {
 
     expect(error).toContain("Ambiguous route patterns /writing/:slug and /writing/:name");
   }, 10_000);
+
+  test("collection globs support globstar, braces, question marks, and character sets", async () => {
+    const siteRoot = await copyFixtureSite();
+    await rm(join(siteRoot, "content", "hello.md"));
+    await rm(join(siteRoot, "content", "articles"), { recursive: true });
+    await writeContent(siteRoot, "articles/2026/zeta1.md", {
+      id: "zeta",
+      created: "2026-07-12",
+      title: "Zeta",
+    });
+    await writeContent(siteRoot, "articles/2025/alpha2.mdx", {
+      id: "alpha",
+      created: "2026-07-13",
+      title: "Alpha",
+    });
+    await writeContent(siteRoot, "notes/ignored.md", {
+      id: "ignored",
+      created: "2026-07-14",
+      title: "Ignored",
+    });
+    await writePage(
+      siteRoot,
+      "list",
+      `import type { ContentRecord } from "../../../../../../src/index.ts";
+      export default function List({ items }: { items: readonly ContentRecord[] }) {
+        return <p>{items.map((item) => item.id).join(",")}</p>;
+      }`,
+    );
+    await writeTheme(
+      siteRoot,
+      `export default defineTheme({
+        collections: {
+          writing: collection({
+            from: "articles/**/[az]*?.{md,mdx}",
+            schema: { title: "string" },
+          }),
+        },
+        routes: [route("/writing", page("list", { items: { collection: "writing" } }))],
+      });`,
+    );
+    const site = spawnSite(siteRoot);
+    const address = await readServerAddress(site);
+
+    const html = await fetch(`${address}/writing`).then((response) => response.text());
+
+    expect(html).toContain("<p>alpha,zeta</p>");
+    expect(html).not.toContain("ignored");
+  }, 10_000);
+
+  test("collection globs accept Windows path separators", async () => {
+    const siteRoot = await copyFixtureSite();
+    await rm(join(siteRoot, "content", "hello.md"));
+    await rm(join(siteRoot, "content", "articles"), { recursive: true });
+    await writeContent(siteRoot, "articles/2026/windows.md", {
+      id: "windows-path",
+      created: "2026-07-12",
+      title: "Windows path",
+    });
+    await writePage(
+      siteRoot,
+      "list",
+      `import type { ContentRecord } from "../../../../../../src/index.ts";
+      export default function List({ items }: { items: readonly ContentRecord[] }) {
+        return <p>{items.map((item) => item.id).join(",")}</p>;
+      }`,
+    );
+    await writeTheme(
+      siteRoot,
+      `export default defineTheme({
+        collections: {
+          writing: collection({
+            from: "articles\\\\*\\\\*.md",
+            schema: { title: "string" },
+          }),
+        },
+        routes: [route("/writing", page("list", { items: { collection: "writing" } }))],
+      });`,
+    );
+    const site = spawnSite(siteRoot);
+    const address = await readServerAddress(site);
+
+    const html = await fetch(`${address}/writing`).then((response) => response.text());
+
+    expect(html).toContain("<p>windows-path</p>");
+  }, 10_000);
+
+  test("site owner cannot start a theme with an invalid collection glob", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeTheme(
+      siteRoot,
+      `export default defineTheme({
+        collections: {
+          writing: collection({ from: "articles/[*.md", schema: { title: "string" } }),
+        },
+        routes: [route("/writing", page("article-list", { items: { collection: "writing" } }))],
+      });`,
+    );
+
+    const error = await readStartupError(spawnSite(siteRoot));
+
+    expect(error).toContain("Invalid collection glob writing (articles/[*.md)");
+  }, 10_000);
 });
 
 async function copyFixtureSite(): Promise<string> {

@@ -27,7 +27,7 @@ bun index.ts status --root test/fixtures/minimal-site
 
 `start` 会在站点的 `data/diitey.runtime.json` 写入仅当前用户可读的管理连接信息，并在正常退出时删除。管理监听器仅绑定 loopback；`reload` 成功后原子替换有效快照，校验失败或超时则保留原有效快照。
 
-主题可用 glob 声明集合，通过 `where`、`orderBy`、`limit` 和 `paginate` 查询内容，并用源路径参数生成内容路由。集合排序会自动追加内容 ID 升序作为最终排序键；分页读取正整数 `page` 查询参数。内容记录的 `url` 始终指向其 canonical 路由。
+主题可用 picomatch glob 声明集合，通过 `where`、`orderBy`、`limit` 和 `paginate` 查询内容，并用源路径参数生成内容路由。集合 glob 支持 `*`、`**`、`?`、字符集合和 brace patterns（例如 `articles/**/*.{md,mdx}`）；内容源路径和主题中的 Windows 路径分隔符都会统一为 `/`，无效 glob 会在启动时失败。集合排序会自动追加内容 ID 升序作为最终排序键；分页读取正整数 `page` 查询参数。内容记录的 `url` 始终指向其 canonical 路由。
 
 可在 `site.config.ts` 中设置 reload 构建超时：
 
