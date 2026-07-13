@@ -1,0 +1,557 @@
+import type { ComponentType } from "preact";
+import type { Database } from "bun:sqlite";
+import type {
+  ContentRecord,
+  ItemBinding,
+  ListBinding,
+  ServiceBinding,
+} from "../index.ts";
+import { renderPageWithIslands, type BuiltIslands } from "../islands.ts";
+import {
+  callPluginService,
+  type PluginRuntime,
+} from "../plugins.ts";
+import type { ContentSnapshot } from "./content-snapshot.ts";
+import {
+  buildRoutePath,
+  matchPathPattern,
+  normalizeRoutePath,
+} from "./content-snapshot.ts";
+
+export interface RequestRuntime {
+  readonly pluginRuntime: PluginRuntime;
+  readonly pluginDatabase: Database;
+  readonly islands: BuiltIslands;
+  readonly contentIds: ReadonlySet<string>;
+}
+
+export interface PublishedRouteEntry {
+  readonly path: string;
+  readonly title: string;
+  readonly planId: string;
+  readonly publishData: Readonly<Record<string, unknown>>;
+  readonly body?: string;
+  readonly pagination?: {
+    readonly pageSize: number;
+    readonly bindingName: string;
+    readonly items: readonly ContentRecord[];
+    readonly bodies?: readonly string[];
+    readonly emptyBody?: string;
+  };
+}
+
+export interface CompiledPagePlan {
+  readonly id: string;
+  readonly pageName: string;
+  readonly pathPattern: string;
+  publish(snapshot: ContentSnapshot): readonly PublishedRouteEntry[];
+  render(
+    entry: PublishedRouteEntry,
+    request: Request,
+    runtime: RequestRuntime,
+  ): Promise<string>;
+}
+
+type ContentBinding = ItemBinding | ListBinding;
+
+interface ServicePlan {
+  readonly name: string;
+  readonly service: string;
+  readonly literals: Readonly<Record<string, unknown>>;
+  readonly refs: readonly {
+    readonly key: string;
+    readonly path: string;
+    readonly root: string;
+  }[];
+  readonly dependsOn: ReadonlySet<string>;
+}
+
+interface CompiledBinding {
+  readonly name: string;
+  readonly kind: "item" | "list" | "service";
+  readonly content?: ContentBinding;
+  readonly service?: ServicePlan;
+}
+
+export function compilePagePlan(options: {
+  readonly id: string;
+  readonly pathPattern: string;
+  readonly pageName: string;
+  readonly Page: ComponentType<Record<string, unknown>>;
+  readonly data: Readonly<
+    Record<string, ItemBinding | ListBinding | ServiceBinding>
+  >;
+  readonly pluginRuntime: PluginRuntime;
+  readonly islands: BuiltIslands;
+}): CompiledPagePlan {
+  const bindings = Object.entries(options.data);
+  if (bindings.length === 0) {
+    throw new Error(`Theme page ${options.pageName} must declare data`);
+  }
+
+  const compiled: CompiledBinding[] = bindings.map(([name, binding]) => {
+    if ("service" in binding) {
+      if (!options.pluginRuntime.services[binding.service]) {
+        throw new Error(`Unknown plugin service: ${binding.service}`);
+      }
+      return {
+        name,
+        kind: "service",
+        service: compileServicePlan(name, binding, options.pageName),
+      };
+    }
+    if ("match" in binding) {
+      return { name, kind: "item", content: binding };
+    }
+    return { name, kind: "list", content: binding };
+  });
+
+  const itemBindings = compiled.filter((binding) => binding.kind === "item");
+  if (itemBindings.length > 1) {
+    throw new Error(
+      `Theme route ${options.pathPattern} can declare only one item binding`,
+    );
+  }
+  const listBindings = compiled.filter((binding) => binding.kind === "list");
+  const paginated = listBindings.filter(
+    (binding) =>
+      binding.content &&
+      "paginate" in binding.content &&
+      binding.content.paginate !== undefined,
+  );
+  if (paginated.length > 1) {
+    throw new Error(
+      `Theme route ${options.pathPattern} can paginate only one binding`,
+    );
+  }
+
+  const serviceBindings = compiled.filter(
+    (binding) => binding.kind === "service",
+  );
+  validateServiceDependencies(
+    options.pageName,
+    compiled,
+    serviceBindings.map((binding) => binding.service!),
+  );
+
+  const itemBinding = itemBindings[0];
+  const paginatedBinding = paginated[0];
+  const hasServices = serviceBindings.length > 0;
+  const isStaticPath = !options.pathPattern.includes(":");
+
+  if (itemBinding === undefined && !isStaticPath) {
+    throw new Error(
+      `Route ${options.pathPattern} has parameters but no item binding`,
+    );
+  }
+
+  return Object.freeze({
+    id: options.id,
+    pageName: options.pageName,
+    pathPattern: options.pathPattern,
+    publish(snapshot: ContentSnapshot): readonly PublishedRouteEntry[] {
+      if (itemBinding?.content && "match" in itemBinding.content) {
+        const itemName = itemBinding.name;
+        const itemSpec = itemBinding.content;
+        const entries: PublishedRouteEntry[] = [];
+        for (const item of snapshot.byCollection[itemSpec.collection] ?? []) {
+          const parameters = matchPathPattern(itemSpec.match, item.sourcePath);
+          if (!parameters) continue;
+          const path = buildRoutePath(options.pathPattern, parameters);
+          const publishData = buildContentData(compiled, snapshot, {
+            name: itemName,
+            item,
+          });
+          const title =
+            typeof item.attributes.title === "string"
+              ? item.attributes.title
+              : "Diitey";
+          if (hasServices) {
+            entries.push(
+              Object.freeze({
+                path,
+                title,
+                planId: options.id,
+                publishData: Object.freeze(publishData),
+              }),
+            );
+          } else {
+            entries.push(
+              Object.freeze({
+                path,
+                title,
+                planId: options.id,
+                publishData: Object.freeze(publishData),
+                body: renderPageWithIslands(
+                  options.Page,
+                  publishData,
+                  options.islands,
+                ),
+              }),
+            );
+          }
+        }
+        return Object.freeze(entries);
+      }
+
+      const path = normalizeRoutePath(options.pathPattern);
+      const publishData = buildContentData(compiled, snapshot);
+      if (paginatedBinding?.content && "paginate" in paginatedBinding.content) {
+        const pageSize = paginatedBinding.content.paginate;
+        if (
+          pageSize === undefined ||
+          !Number.isInteger(pageSize) ||
+          pageSize <= 0
+        ) {
+          throw new Error("paginate must be a positive integer");
+        }
+        const listBinding = paginatedBinding.content;
+        const selected = applyLimit(
+          snapshot.byCollection[listBinding.collection] ?? [],
+          listBinding.limit,
+        );
+        if (hasServices) {
+          return Object.freeze([
+            Object.freeze({
+              path,
+              title: "Diitey",
+              planId: options.id,
+              publishData: Object.freeze(publishData),
+              pagination: Object.freeze({
+                pageSize,
+                bindingName: paginatedBinding.name,
+                items: Object.freeze(selected),
+              }),
+            }),
+          ]);
+        }
+        const renderPage = (items: readonly ContentRecord[]) =>
+          renderPageWithIslands(
+            options.Page,
+            {
+              ...publishData,
+              [paginatedBinding.name]: items,
+            },
+            options.islands,
+          );
+        const bodies = Array.from(
+          { length: Math.ceil(selected.length / pageSize) },
+          (_, index) =>
+            renderPage(selected.slice(index * pageSize, (index + 1) * pageSize)),
+        );
+        const emptyBody = renderPage([]);
+        return Object.freeze([
+          Object.freeze({
+            path,
+            title: "Diitey",
+            planId: options.id,
+            publishData: Object.freeze(publishData),
+            body: bodies[0] ?? emptyBody,
+            pagination: Object.freeze({
+              pageSize,
+              bindingName: paginatedBinding.name,
+              items: Object.freeze(selected),
+              bodies: Object.freeze(bodies),
+              emptyBody,
+            }),
+          }),
+        ]);
+      }
+
+      if (hasServices) {
+        return Object.freeze([
+          Object.freeze({
+            path,
+            title: "Diitey",
+            planId: options.id,
+            publishData: Object.freeze(publishData),
+          }),
+        ]);
+      }
+
+      return Object.freeze([
+        Object.freeze({
+          path,
+          title: "Diitey",
+          planId: options.id,
+          publishData: Object.freeze(publishData),
+          body: renderPageWithIslands(
+            options.Page,
+            publishData,
+            options.islands,
+          ),
+        }),
+      ]);
+    },
+    async render(
+      entry: PublishedRouteEntry,
+      request: Request,
+      runtime: RequestRuntime,
+    ): Promise<string> {
+      const url = new URL(request.url);
+      let data: Record<string, unknown> = { ...entry.publishData };
+
+      if (entry.pagination) {
+        const values = url.searchParams.getAll("page");
+        const value = values[0] ?? "1";
+        if (values.length > 1 || !/^[1-9]\d*$/.test(value)) {
+          throw new PageRequestError("Invalid page", 400);
+        }
+        const pageNumber = Number(value);
+        if (!Number.isSafeInteger(pageNumber)) {
+          throw new PageRequestError("Invalid page", 400);
+        }
+        if (entry.pagination.bodies) {
+          return (
+            entry.pagination.bodies[pageNumber - 1] ??
+            entry.pagination.emptyBody!
+          );
+        }
+        const start = (pageNumber - 1) * entry.pagination.pageSize;
+        const pageItems =
+          start >= entry.pagination.items.length
+            ? []
+            : entry.pagination.items.slice(
+                start,
+                start + entry.pagination.pageSize,
+              );
+        data = {
+          ...data,
+          [entry.pagination.bindingName]: pageItems,
+        };
+      } else if (entry.body !== undefined && !hasServices) {
+        return entry.body;
+      }
+
+      if (hasServices) {
+        const serviceData = await resolveServices(
+          serviceBindings.map((binding) => binding.service!),
+          data,
+          runtime,
+        );
+        data = { ...data, ...serviceData };
+      }
+
+      return renderPageWithIslands(options.Page, data, runtime.islands);
+    },
+  });
+}
+
+export class PageRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+function compileServicePlan(
+  name: string,
+  binding: ServiceBinding,
+  pageName: string,
+): ServicePlan {
+  const literals: Record<string, unknown> = Object.create(null);
+  const refs: { key: string; path: string; root: string }[] = [];
+  const dependsOn = new Set<string>();
+  for (const [key, value] of Object.entries(binding.input)) {
+    if (isDataReference(value)) {
+      const root = value.from.split(".")[0] ?? value.from;
+      if (root === name) {
+        throw new Error(
+          `Page ${pageName} service ${name} cannot reference itself via ${value.from}`,
+        );
+      }
+      refs.push({ key, path: value.from, root });
+      dependsOn.add(root);
+    } else {
+      literals[key] = value;
+    }
+  }
+  return Object.freeze({
+    name,
+    service: binding.service,
+    literals: Object.freeze(literals),
+    refs: Object.freeze(refs),
+    dependsOn: Object.freeze(dependsOn),
+  });
+}
+
+function validateServiceDependencies(
+  pageName: string,
+  bindings: readonly CompiledBinding[],
+  services: readonly ServicePlan[],
+): void {
+  const known = new Set(bindings.map((binding) => binding.name));
+  for (const service of services) {
+    for (const root of service.dependsOn) {
+      if (!known.has(root)) {
+        throw new Error(
+          `Page ${pageName} service ${service.name} references missing data ${root}`,
+        );
+      }
+    }
+  }
+
+  const serviceNames = new Set(services.map((service) => service.name));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (name: string, stack: string[]): void => {
+    if (visited.has(name)) return;
+    if (visiting.has(name)) {
+      throw new Error(
+        `Page ${pageName} has cyclic service data references: ${[...stack, name].join(" -> ")}`,
+      );
+    }
+    visiting.add(name);
+    const service = services.find((candidate) => candidate.name === name);
+    if (service) {
+      for (const dep of service.dependsOn) {
+        if (serviceNames.has(dep)) {
+          visit(dep, [...stack, name]);
+        }
+      }
+    }
+    visiting.delete(name);
+    visited.add(name);
+  };
+  for (const service of services) {
+    visit(service.name, []);
+  }
+}
+
+function buildContentData(
+  bindings: readonly CompiledBinding[],
+  snapshot: ContentSnapshot,
+  override?:
+    | { readonly name: string; readonly item: ContentRecord }
+    | { readonly name: string; readonly items: readonly ContentRecord[] },
+): Record<string, unknown> {
+  const data: Record<string, unknown> = Object.create(null);
+  for (const binding of bindings) {
+    if (binding.kind === "service") continue;
+    if (override?.name === binding.name) {
+      data[binding.name] = "item" in override ? override.item : override.items;
+      continue;
+    }
+    if (binding.kind === "item") {
+      throw new Error(
+        `Item binding ${binding.name} has no matched content record`,
+      );
+    }
+    const list = binding.content as ListBinding;
+    data[binding.name] = applyLimit(
+      snapshot.byCollection[list.collection] ?? [],
+      list.limit,
+    );
+  }
+  return data;
+}
+
+function applyLimit(
+  records: readonly ContentRecord[],
+  limit: number | undefined,
+): readonly ContentRecord[] {
+  if (limit === undefined) {
+    return records;
+  }
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error("limit must be a positive integer");
+  }
+  return records.slice(0, limit);
+}
+
+async function resolveServices(
+  services: readonly ServicePlan[],
+  pageData: Readonly<Record<string, unknown>>,
+  runtime: RequestRuntime,
+): Promise<Record<string, unknown>> {
+  const resolved: Record<string, unknown> = Object.create(null);
+  const remaining = new Map(services.map((service) => [service.name, service]));
+
+  while (remaining.size > 0) {
+    const ready = [...remaining.values()].filter((service) =>
+      [...service.dependsOn].every(
+        (dep) =>
+          Object.prototype.hasOwnProperty.call(pageData, dep) ||
+          Object.prototype.hasOwnProperty.call(resolved, dep),
+      ),
+    );
+    if (ready.length === 0) {
+      throw new Error(
+        `Unable to resolve plugin services: ${[...remaining.keys()].join(", ")}`,
+      );
+    }
+    const results = await Promise.all(
+      ready.map(async (service) => {
+        const input: Record<string, unknown> = { ...service.literals };
+        for (const ref of service.refs) {
+          input[ref.key] = readDataPath(
+            { ...pageData, ...resolved },
+            ref.path,
+          );
+        }
+        const output = await runWithTimeout(5_000, (signal) =>
+          callPluginService(
+            runtime.pluginRuntime,
+            service.service,
+            input,
+            runtime.pluginDatabase,
+            runtime.contentIds,
+            signal,
+          ),
+        );
+        return [service.name, output] as const;
+      }),
+    );
+    for (const [name, output] of results) {
+      resolved[name] = output;
+      remaining.delete(name);
+    }
+  }
+  return resolved;
+}
+
+function isDataReference(value: unknown): value is { readonly from: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.keys(value).length === 1 &&
+    typeof (value as { from?: unknown }).from === "string"
+  );
+}
+
+function readDataPath(
+  data: Readonly<Record<string, unknown>>,
+  path: string,
+): unknown {
+  let value: unknown = data;
+  for (const segment of path.split(".")) {
+    if (typeof value !== "object" || value === null || !(segment in value)) {
+      throw new Error(`Service input reference ${path} does not exist`);
+    }
+    value = (value as Record<string, unknown>)[segment];
+  }
+  return value;
+}
+
+async function runWithTimeout<T>(
+  timeoutMs: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation(controller.signal),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`Plugin service timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}

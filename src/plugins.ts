@@ -2,7 +2,6 @@ import type {
   ActionDefinition,
   PluginDefinition,
   PluginServiceDefinition,
-  ServiceBinding,
 } from "./index.ts";
 import type { Database } from "bun:sqlite";
 
@@ -69,39 +68,4 @@ export async function callPluginService(
     }),
   });
   return service.output.parse(output);
-}
-
-export function buildServiceInput(
-  binding: ServiceBinding,
-  pageData: Readonly<Record<string, unknown>>,
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(binding.input).map(([name, value]) => [
-      name,
-      isDataReference(value) ? readDataPath(pageData, value.from) : value,
-    ]),
-  );
-}
-
-function isDataReference(value: unknown): value is { readonly from: string } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    Object.keys(value).length === 1 &&
-    typeof (value as { from?: unknown }).from === "string"
-  );
-}
-
-function readDataPath(
-  data: Readonly<Record<string, unknown>>,
-  path: string,
-): unknown {
-  let value: unknown = data;
-  for (const segment of path.split(".")) {
-    if (typeof value !== "object" || value === null || !(segment in value)) {
-      throw new Error(`Service input reference ${path} does not exist`);
-    }
-    value = (value as Record<string, unknown>)[segment];
-  }
-  return value;
 }
