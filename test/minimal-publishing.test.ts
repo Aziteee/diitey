@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 type SiteProcess = Bun.Subprocess<"ignore", "pipe", "pipe">;
@@ -144,6 +144,92 @@ describe("minimal publishing loop", () => {
 
     expect(html).toContain("<h1>Package: Hello, Diitey</h1>");
   }, 10_000);
+
+  test("site owner sees the invalid site config field when startup validation fails", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `export default { theme: 42 };\n`,
+    );
+
+    const { exitCode, error } = await waitForStartFailure(spawnSite(siteRoot));
+
+    expect(exitCode).toBe(1);
+    expect(error).toContain("site config.theme");
+  });
+
+  test("site owner sees the invalid theme field before a database is opened", async () => {
+    const siteRoot = await copyFixtureSite();
+    await rm(join(siteRoot, "data"), { recursive: true, force: true });
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "theme.ts"),
+      `export default { collections: {}, routes: "not-an-array" };\n`,
+    );
+
+    const { exitCode, error } = await waitForStartFailure(spawnSite(siteRoot));
+
+    expect(exitCode).toBe(1);
+    expect(error).toContain("theme ./themes/minimal/theme.ts.routes");
+    expect(await Bun.file(join(siteRoot, "data", "site.sqlite")).exists()).toBe(false);
+  });
+
+  test("site owner sees the invalid plugin field before a database is opened", async () => {
+    const siteRoot = await copyFixtureSite();
+    const pluginRoot = join(siteRoot, "plugins", "broken");
+    await rm(join(siteRoot, "data"), { recursive: true, force: true });
+    await mkdir(pluginRoot, { recursive: true });
+    await writeFile(
+      join(pluginRoot, "plugin.ts"),
+      `export default { services: { broken: 42 } };\n`,
+    );
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `export default {
+        theme: "./themes/minimal/theme.ts",
+        plugins: [
+          "./plugins/todo-list/plugin.ts",
+          "./plugins/broken/plugin.ts",
+        ],
+      };\n`,
+    );
+
+    const { exitCode, error } = await waitForStartFailure(spawnSite(siteRoot));
+
+    expect(exitCode).toBe(1);
+    expect(error).toContain("plugin ./plugins/broken/plugin.ts.services.broken");
+    expect(await Bun.file(join(siteRoot, "data", "site.sqlite")).exists()).toBe(false);
+  });
+
+  test.each([
+    ["body limit", "bodyLimitBytes: 512", "bodyLimitBytes: 65_537", "bodyLimitBytes"],
+    ["timeout", "timeoutMs: 2_000", "timeoutMs: 0", "timeoutMs"],
+    [
+      "rate limit",
+      "rateLimit: { limit: 20, windowMs: 60_000 }",
+      "rateLimit: { limit: 0, windowMs: 60_000 }",
+      "rateLimit.limit",
+    ],
+  ] as const)(
+    "site owner sees the invalid Action %s field at startup",
+    async (_label, original, replacement, fieldPath) => {
+      const siteRoot = await copyFixtureSite();
+      const pluginPath = join(
+        siteRoot,
+        "plugins",
+        "todo-list",
+        "plugin.ts",
+      );
+      const source = await readFile(pluginPath, "utf8");
+      await writeFile(pluginPath, source.replace(original, replacement));
+
+      const { exitCode, error } = await waitForStartFailure(spawnSite(siteRoot));
+
+      expect(exitCode).toBe(1);
+      expect(error).toContain(
+        `plugin ./plugins/todo-list/plugin.ts.actions.todo.create.${fieldPath}`,
+      );
+    },
+  );
 
   test("site owner cannot start a site whose content ID is not a YAML string", async () => {
     const siteRoot = await copyFixtureSite();

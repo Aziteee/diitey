@@ -1,5 +1,6 @@
 import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { parseRuntimeInfo } from "./validation.ts";
 
 export interface RuntimeInfo {
   readonly pid: number;
@@ -45,16 +46,7 @@ export async function readRuntimeInfo(root: string): Promise<RuntimeInfo> {
     throw error;
   }
 
-  const info = JSON.parse(value) as Partial<RuntimeInfo>;
-  if (
-    !Number.isInteger(info.pid) ||
-    !Number.isInteger(info.adminPort) ||
-    typeof info.token !== "string" ||
-    info.token === ""
-  ) {
-    throw new Error("The Diitey runtime information file is invalid");
-  }
-  return info as RuntimeInfo;
+  return parseRuntimeInfo(JSON.parse(value));
 }
 
 export async function removeRuntimeInfo(root: string): Promise<void> {

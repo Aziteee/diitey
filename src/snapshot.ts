@@ -119,9 +119,6 @@ export async function loadPublishingContext(root: string): Promise<PublishingCon
   );
 
   const reloadTimeoutMs = config.reload?.timeoutMs ?? defaultReloadTimeoutMs;
-  if (!Number.isInteger(reloadTimeoutMs) || reloadTimeoutMs <= 0) {
-    throw new Error("reload.timeoutMs must be a positive integer");
-  }
 
   return Object.freeze({
     contentRoot: resolve(root, "content"),

@@ -5,6 +5,11 @@ import type {
   SiteDefinition,
   ThemeDefinition,
 } from "./index.ts";
+import {
+  parsePluginDefinition,
+  parseSiteDefinition,
+  parseThemeDefinition,
+} from "./validation.ts";
 
 export interface LoadedExtension<T> {
   readonly reference: string;
@@ -21,9 +26,8 @@ export interface LoadedSiteExtensions {
 export async function loadSiteExtensions(
   root: string,
 ): Promise<LoadedSiteExtensions> {
-  const config = await importDefault<SiteDefinition>(
-    resolve(root, "site.config.ts"),
-    "site config",
+  const config = parseSiteDefinition(
+    await importDefault(resolve(root, "site.config.ts"), "site config"),
   );
   const theme = await loadExtension<ThemeDefinition>(
     root,
@@ -67,7 +71,10 @@ async function loadExtension<T>(
   kind: "theme" | "plugin",
 ): Promise<LoadedExtension<T>> {
   const entryPath = await resolveExtensionEntry(root, reference, kind);
-  const definition = await importDefault<T>(entryPath, `${kind} ${reference}`);
+  const imported = await importDefault(entryPath, `${kind} ${reference}`);
+  const definition = (kind === "theme"
+    ? parseThemeDefinition(imported, `theme ${reference}`)
+    : parsePluginDefinition(imported, `plugin ${reference}`)) as T;
   return Object.freeze({ reference, entryPath, definition });
 }
 
@@ -97,7 +104,7 @@ function isPathReference(reference: string): boolean {
   );
 }
 
-async function importDefault<T>(filePath: string, label: string): Promise<T> {
+async function importDefault<T = unknown>(filePath: string, label: string): Promise<T> {
   const module = (await import(pathToFileURL(filePath).href)) as { default?: T };
   if (!module.default) throw new Error(`Missing default export from ${label}`);
   return module.default;

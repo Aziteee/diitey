@@ -29,31 +29,6 @@ export function buildPluginRuntime(
       if (!plugin.services?.[action.service]) {
         throw new Error(`Action ${name} references unknown service ${action.service}`);
       }
-      if (
-        action.bodyLimitBytes !== undefined &&
-        (!Number.isInteger(action.bodyLimitBytes) ||
-          action.bodyLimitBytes <= 0 ||
-          action.bodyLimitBytes > 65_536)
-      ) {
-        throw new Error(
-          `Action ${name} bodyLimitBytes must be between 1 and 65536`,
-        );
-      }
-      if (
-        action.rateLimit !== undefined &&
-        (!Number.isInteger(action.rateLimit.limit) ||
-          action.rateLimit.limit <= 0 ||
-          !Number.isInteger(action.rateLimit.windowMs) ||
-          action.rateLimit.windowMs <= 0)
-      ) {
-        throw new Error(`Action ${name} rateLimit values must be positive integers`);
-      }
-      if (
-        action.timeoutMs !== undefined &&
-        (!Number.isInteger(action.timeoutMs) || action.timeoutMs <= 0)
-      ) {
-        throw new Error(`Action ${name} timeoutMs must be a positive integer`);
-      }
       actions[name] = action;
     }
   }

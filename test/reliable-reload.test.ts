@@ -238,6 +238,19 @@ describe("reliable reload loop", () => {
 
     expect(result).toEqual({ exitCode: 0, error: "" });
   }, 10_000);
+
+  test("management commands reject damaged runtime information with a field path", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeFile(
+      join(siteRoot, "data", "diitey.runtime.json"),
+      JSON.stringify({ pid: 123, adminPort: "broken", token: "token" }),
+    );
+
+    const result = await runRawCli(siteRoot, "status");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.error).toContain("runtime info.adminPort");
+  });
 });
 
 async function inspectWindowsAcl(
@@ -322,6 +335,27 @@ async function runCli<T>(
     throw new Error(`CLI ${command} produced no JSON (exit ${exitCode}): ${error}`);
   }
   return { exitCode, value: JSON.parse(output) as T };
+}
+
+async function runRawCli(
+  siteRoot: string,
+  command: "reload" | "status",
+): Promise<{ exitCode: number; error: string }> {
+  const process = Bun.spawn(
+    [
+      Bun.which("bun") ?? "bun",
+      join(import.meta.dir, "..", "index.ts"),
+      command,
+      "--root",
+      siteRoot,
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  const [exitCode, error] = await Promise.all([
+    process.exited,
+    new Response(process.stderr).text(),
+  ]);
+  return { exitCode, error };
 }
 
 async function copyFixtureSite(): Promise<string> {
