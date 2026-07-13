@@ -12,6 +12,7 @@ import {
 } from "./plugins.ts";
 import { renderPageWithIslands } from "./islands.ts";
 import { preparePluginDatabase } from "./plugin-database.ts";
+import { createActionRateLimiter } from "./rate-limit.ts";
 
 interface StartOptions {
   root: string;
@@ -47,7 +48,7 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
     result: "succeeded",
   };
   let activeBuildId: string | null = null;
-  const rateLimits = new Map<string, { startedAt: number; count: number }>();
+  const rateLimiter = createActionRateLimiter();
 
   const publicServer = Bun.serve({
     hostname: "127.0.0.1",
@@ -100,8 +101,7 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
         const clientAddress = server.requestIP(request)?.address ?? "unknown";
         const rateLimit = action.rateLimit ?? { limit: 60, windowMs: 60_000 };
         if (
-          !consumeRateLimit(
-            rateLimits,
+          !rateLimiter.consume(
             `${clientAddress}:${actionName}`,
             rateLimit,
           )
@@ -352,22 +352,6 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
       await removeRuntimeInfo(options.root);
     },
   };
-}
-
-function consumeRateLimit(
-  entries: Map<string, { startedAt: number; count: number }>,
-  key: string,
-  limit: { readonly limit: number; readonly windowMs: number },
-): boolean {
-  const now = Date.now();
-  const entry = entries.get(key);
-  if (!entry || now - entry.startedAt >= limit.windowMs) {
-    entries.set(key, { startedAt: now, count: 1 });
-    return true;
-  }
-  if (entry.count >= limit.limit) return false;
-  entry.count += 1;
-  return true;
 }
 
 async function renderDynamicPage(
