@@ -17,6 +17,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # runtime information
 **/data/diitey.runtime.json
+/test/fixtures/minimal-site/data/
 
 # dotenv environment variable files
 .env
