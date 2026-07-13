@@ -2,13 +2,18 @@ import {
   definePlugin,
   PluginNotFoundError,
 } from "diitey";
+import { z } from "zod";
 
-interface TodoItem {
-  readonly id: number;
-  readonly title: string;
-  readonly completed: boolean;
-  readonly createdAt: string;
-}
+const todoOutput = z
+  .object({
+    id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    title: z.string(),
+    completed: z.boolean(),
+    createdAt: z.string(),
+  })
+  .strict();
+
+type TodoItem = z.infer<typeof todoOutput>;
 
 interface TodoRow {
   readonly id: number;
@@ -17,68 +22,18 @@ interface TodoRow {
   readonly createdAt: string;
 }
 
-function inputRecord(value: unknown): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error("input must be an object");
-  }
-  return value as Record<string, unknown>;
-}
-
-const listInput = {
-  parse(value: unknown): Record<string, never> {
-    const input = inputRecord(value);
-    if (Object.keys(input).length !== 0) {
-      throw new Error("todo.list does not accept fields");
-    }
-    return {};
-  },
-};
-
-const createInput = {
-  parse(value: unknown): { readonly title: string } {
-    const input = inputRecord(value);
-    if (
-      typeof input.title !== "string" ||
-      input.title.trim().length === 0 ||
-      input.title.trim().length > 100
-    ) {
-      throw new Error("title must contain 1 to 100 characters");
-    }
-    return { title: input.title.trim() };
-  },
-};
-
-const toggleInput = {
-  parse(value: unknown): { readonly id: number } {
-    const input = inputRecord(value);
-    if (!Number.isSafeInteger(input.id) || Number(input.id) <= 0) {
-      throw new Error("id must be a positive integer");
-    }
-    return { id: Number(input.id) };
-  },
-};
-
-const todoOutput = {
-  parse(value: unknown): TodoItem {
-    const row = inputRecord(value);
-    if (
-      !Number.isSafeInteger(row.id) ||
-      typeof row.title !== "string" ||
-      typeof row.completed !== "boolean" ||
-      typeof row.createdAt !== "string"
-    ) {
-      throw new Error("invalid todo output");
-    }
-    return row as unknown as TodoItem;
-  },
-};
-
-const todoListOutput = {
-  parse(value: unknown): readonly TodoItem[] {
-    if (!Array.isArray(value)) throw new Error("invalid todo list output");
-    return value.map((item) => todoOutput.parse(item));
-  },
-};
+const listInput = z.object({}).strict();
+const createInput = z
+  .object({
+    title: z.string().trim().min(1).max(100),
+  })
+  .strict();
+const toggleInput = z
+  .object({
+    id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
+const todoListOutput = z.array(todoOutput);
 
 export default definePlugin({
   id: "todo-list",

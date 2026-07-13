@@ -55,6 +55,31 @@ describe("dynamic behavior loop", () => {
     expect(afterToggle).toContain('data-completed="true"');
   }, 10_000);
 
+  test("the todo-list plugin validates Action input with Zod", async () => {
+    const siteRoot = await copyFixtureSite();
+    await enableTodoListExample(siteRoot);
+    const site = spawnSite(siteRoot);
+    const address = await readServerAddress(site);
+    const create = (input: unknown) =>
+      fetch(`${address}/_action/todo.create`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: address,
+        },
+        body: JSON.stringify(input),
+      });
+
+    const blank = await create({ title: "   " });
+    const extra = await create({ title: "Valid", unexpected: true });
+    const valid = await create({ title: "  Trimmed title  " });
+
+    expect(blank.status).toBe(400);
+    expect(extra.status).toBe(400);
+    expect(valid.status).toBe(201);
+    expect(await valid.json()).toMatchObject({ title: "Trimmed title" });
+  }, 10_000);
+
   test("the theme comment island submits through the core Action", async () => {
     const siteRoot = await copyFixtureSite();
     await writeMemoryCommentsPlugin(siteRoot);
