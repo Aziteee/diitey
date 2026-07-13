@@ -13,6 +13,7 @@ import {
 import { renderPageWithIslands } from "./islands.ts";
 import { preparePluginDatabase } from "./plugin-database.ts";
 import { createActionRateLimiter } from "./rate-limit.ts";
+import { parse as parseCookie, serialize as serializeCookie } from "cookie";
 
 interface StartOptions {
   root: string;
@@ -224,7 +225,11 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
         ) {
           const csrfToken =
             readCookie(request, "diitey_csrf") ?? crypto.randomUUID();
-          headers["set-cookie"] = `diitey_csrf=${csrfToken}; Path=/; SameSite=Strict`;
+          headers["set-cookie"] = serializeCookie("diitey_csrf", csrfToken, {
+            path: "/",
+            sameSite: "strict",
+            secure: url.protocol === "https:",
+          });
         }
         return new Response(html, {
           headers,
@@ -432,9 +437,5 @@ function isLoopback(address: string): boolean {
 }
 
 function readCookie(request: Request, name: string): string | undefined {
-  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
-    const [cookieName, ...valueParts] = part.trim().split("=");
-    if (cookieName === name) return valueParts.join("=");
-  }
-  return undefined;
+  return parseCookie(request.headers.get("cookie") ?? "")[name];
 }

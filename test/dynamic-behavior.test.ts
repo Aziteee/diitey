@@ -331,7 +331,8 @@ describe("dynamic behavior loop", () => {
     const site = spawnSite(siteRoot);
     const address = await readServerAddress(site);
     const page = await fetch(`${address}/writing/hello`);
-    const cookie = page.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
+    const setCookie = page.headers.get("set-cookie") ?? "";
+    const cookie = setCookie.split(";", 1)[0] ?? "";
     const token = cookie.split("=", 2)[1] ?? "";
     const submit = (csrfToken?: string) =>
       fetch(`${address}/_action/comments.create`, {
@@ -346,8 +347,39 @@ describe("dynamic behavior loop", () => {
       });
 
     expect(cookie).not.toBe("");
+    expect(setCookie).toContain("Path=/");
+    expect(setCookie).toContain("SameSite=Strict");
+    expect(setCookie).not.toContain("HttpOnly");
+    expect(setCookie).not.toContain("Secure");
     expect((await submit()).status).toBe(403);
     expect((await submit(token)).status).toBe(201);
+  }, 10_000);
+
+  test("a cookie-authenticated Action reads an encoded token among multiple cookies", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeSqliteCommentsPlugin(siteRoot);
+    await enableComments(siteRoot);
+    const pluginPath = join(siteRoot, "plugins", "comments", "plugin.ts");
+    const pluginSource = await readFile(pluginPath, "utf8");
+    await writeFile(
+      pluginPath,
+      pluginSource.replace("timeoutMs: 20,", 'timeoutMs: 20, credentials: "cookie",'),
+    );
+    const site = spawnSite(siteRoot);
+    const address = await readServerAddress(site);
+
+    const response = await fetch(`${address}/_action/comments.create`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: address,
+        cookie: "session=abc; diitey_csrf=token%3Dwith%20space; mode=dark",
+        "x-csrf-token": "token=with space",
+      },
+      body: JSON.stringify({ contentId: "hello-content", body: "Encoded" }),
+    });
+
+    expect(response.status).toBe(201);
   }, 10_000);
 
   test("an SSR plugin service exception returns one standard 500 page", async () => {

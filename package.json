@@ -18,6 +18,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "cookie": "^1.0.2",
     "lru-cache": "^11.5.2",
     "preact": "^10.29.7",
     "preact-render-to-string": "^6.7.0",
