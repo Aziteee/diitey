@@ -12,6 +12,9 @@
 
     // Bundler mode
     "moduleResolution": "bundler",
+    "paths": {
+      "diitey": ["./src/index.ts"]
+    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,

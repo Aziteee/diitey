@@ -1,0 +1,19 @@
+{
+  "name": "diitey-default-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun ../../index.ts start --root .",
+    "reload": "bun ../../index.ts reload --root .",
+    "status": "bun ../../index.ts status --root ."
+  },
+  "dependencies": {
+    "diitey": "file:../..",
+    "preact": "^10.29.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "bun-plugin-tailwind": "^0.1.2",
+    "tailwindcss": "^4.3.2"
+  }
+}

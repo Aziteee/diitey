@@ -1,0 +1,227 @@
+@import "tailwindcss";
+@source "./pages/**/*.{tsx,ts,jsx,js}";
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+    --paper: #fafafa;
+    --ink: #171717;
+    --heading: #0a0a0a;
+    --muted: #737373;
+    --border: #e5e5e5;
+    --soft: #e5e5e5;
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei",
+      sans-serif;
+    text-rendering: optimizeLegibility;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  ::selection {
+    background: #171717;
+    color: #fafafa;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0a0a0a;
+      --ink: #e5e5e5;
+      --heading: #f5f5f5;
+      --muted: #6a6868;
+      --border: #262626;
+      --soft: #171717;
+    }
+
+    ::selection {
+      background: #e5e5e5;
+      color: #0a0a0a;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+}
+
+@layer components {
+  .animated-link,
+  .content a {
+    text-decoration-line: underline;
+    text-decoration-color: var(--muted);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+    transition:
+      text-decoration-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .animated-link:hover,
+  .animated-link:focus-visible,
+  .content a:hover,
+  .content a:focus-visible {
+    text-decoration-color: var(--heading);
+  }
+
+  .back-link {
+    background: none;
+    text-decoration: none;
+  }
+
+  .back-arrow {
+    transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .back-link:hover .back-arrow,
+  .back-link:focus-visible .back-arrow {
+    transform: translateX(-0.2rem);
+  }
+
+  .content {
+    font-family:
+      ui-serif, Georgia, Cambria, "Times New Roman", "Noto Serif CJK SC",
+      "Noto Serif SC", SimSun, serif;
+    font-size: 0.96875rem;
+    font-weight: 400;
+    line-height: 1.85;
+    letter-spacing: 0.01em;
+    font-feature-settings: "kern" 1, "liga" 1;
+    font-synthesis: none;
+  }
+
+  .content > :first-child {
+    @apply mt-0;
+  }
+
+  .content > :last-child {
+    @apply mb-0;
+  }
+
+  .content h2 {
+    @apply mb-3 mt-7 font-serif text-xl font-medium leading-[1.3] tracking-[-0.005em];
+    color: var(--heading);
+  }
+
+  .content h3 {
+    @apply mb-3 mt-7 font-serif text-lg font-medium leading-[1.35] tracking-[-0.005em];
+    color: var(--heading);
+  }
+
+  .content h4 {
+    @apply mb-3 mt-6 font-serif text-base font-medium leading-snug;
+    color: var(--heading);
+  }
+
+  .content p {
+    margin: 0 0 1.05em;
+  }
+
+  .content > p:first-of-type {
+    margin-bottom: 0;
+  }
+
+  .content > p:first-of-type + :is(h2, h3, h4) {
+    clear: both;
+    margin-top: 0;
+    padding-top: 1.75rem;
+  }
+
+  .content > p:first-of-type::first-letter {
+    float: left;
+    margin: 0.1em 0.12em 0 0;
+    color: var(--heading);
+    font-family:
+      ui-serif, Georgia, Cambria, "Times New Roman", "Noto Serif CJK SC",
+      "Noto Serif SC", SimSun, serif;
+    font-size: 3.25rem;
+    font-weight: 400;
+    line-height: 0.82;
+  }
+
+  .content a {
+    @apply focus-visible:outline-none;
+  }
+
+  .content strong {
+    @apply font-medium;
+  }
+
+  .content ul {
+    @apply my-4 list-none p-0;
+  }
+
+  .content ol {
+    @apply my-4 list-decimal pl-6;
+  }
+
+  .content li {
+    @apply my-1.5;
+  }
+
+  .content ul > li {
+    position: relative;
+    padding-left: 1.25rem;
+  }
+
+  .content ul > li::before {
+    position: absolute;
+    left: 0;
+    color: var(--muted);
+    content: "—";
+  }
+
+  .content blockquote {
+    margin: 1.25rem 0;
+    border-left-width: 2px;
+    border-left-style: solid;
+    border-left-color: var(--muted);
+    padding: 0.25rem 0 0.25rem 1rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .content blockquote > :last-child {
+    margin-bottom: 0;
+  }
+
+  .content hr {
+    margin: 2rem 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .content code {
+    @apply rounded-sm px-1.5 py-0.5 font-mono text-[0.85em];
+    background: var(--soft);
+  }
+
+  .content pre {
+    @apply my-6 overflow-x-auto p-5 font-mono text-sm leading-7;
+    border: 1px solid var(--border);
+    background: var(--soft);
+  }
+
+  .content pre code {
+    @apply bg-transparent p-0 text-sm;
+  }
+
+  .content img {
+    @apply my-8 block h-auto max-w-full;
+  }
+}
