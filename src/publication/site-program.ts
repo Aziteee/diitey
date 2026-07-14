@@ -10,14 +10,13 @@ import {
 import type {
   CollectionDefinition,
   PluginDefinition,
-  RouteDefinition,
 } from "../index.ts";
 import { buildPluginRuntime, type PluginRuntime } from "../plugins.ts";
 import {
   compileCollectionMatchers,
-  normalizeRoutePath,
   type ItemRouteSpec,
-} from "./content-snapshot.ts";
+  validateRoutePatterns,
+} from "./route-pattern.ts";
 import { compilePagePlan, type CompiledPagePlan } from "./page-plan.ts";
 
 export interface SiteProgram {
@@ -45,13 +44,17 @@ const defaultReloadTimeoutMs = 30_000;
 export async function compileSiteProgram(
   root: string,
   programRevision: string = crypto.randomUUID(),
+  options: {
+    readonly islands?: BuiltIslands;
+  } = {},
 ): Promise<SiteProgram> {
   const extensions = await loadSiteExtensions(root);
   const { config } = extensions;
   const themePath = extensions.theme.entryPath;
   const theme = extensions.theme.definition;
   const collectionMatchers = compileCollectionMatchers(theme.collections);
-  const islands = await buildThemeIslands(themePath);
+  const islands =
+    options.islands ?? (await buildThemeIslands(themePath));
   const plugins = extensions.plugins.map((plugin) => plugin.definition);
   const pluginRuntime = buildPluginRuntime(plugins);
   if (theme.routes.length === 0) {
@@ -131,28 +134,6 @@ export async function compileSiteProgram(
     pluginDefinitions: Object.freeze(plugins),
     reloadTimeoutMs,
   });
-}
-
-function validateRoutePatterns(routes: readonly RouteDefinition[]): void {
-  const seen = new Map<string, string>();
-  for (const route of routes) {
-    const normalized = normalizeRoutePath(route.path);
-    if (!normalized.startsWith("/")) {
-      throw new Error(`Route path must start with /: ${route.path}`);
-    }
-    if (normalized === "/assets" || normalized.startsWith("/assets/")) {
-      throw new Error(`Theme route cannot use reserved path ${route.path}`);
-    }
-    const shape = normalized
-      .split("/")
-      .map((segment) => (segment.startsWith(":") ? ":" : segment))
-      .join("/");
-    const previous = seen.get(shape);
-    if (previous) {
-      throw new Error(`Ambiguous route patterns ${previous} and ${route.path}`);
-    }
-    seen.set(shape, route.path);
-  }
 }
 
 async function importDefault<T>(filePath: string, label: string): Promise<T> {

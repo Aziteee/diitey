@@ -3,6 +3,7 @@ import type {
   CompiledPagePlan,
   PublishedRouteEntry,
 } from "./page-plan.ts";
+import { publishRoutes } from "./publish-routes.ts";
 import type { SiteProgram } from "./site-program.ts";
 
 export interface EffectivePublication {
@@ -29,17 +30,7 @@ export function buildEffectivePublication(
   program: SiteProgram,
   content: ContentSnapshot,
 ): EffectivePublication {
-  const routes: PublishedRouteEntry[] = [];
-  for (const plan of program.pagePlans) {
-    routes.push(...plan.publish(content));
-  }
-  return materializePublication(program, {
-    version: content.version,
-    publishedAt: content.publishedAt,
-    programRevision: program.programRevision,
-    content,
-    routes,
-  });
+  return materializePublication(program, publishRoutes(program, content));
 }
 
 export function materializePublication(
@@ -95,18 +86,11 @@ export function buildPublicationCandidate(
   program: SiteProgram,
   content: ContentSnapshot,
 ): PublicationCandidate {
-  const routes: PublishedRouteEntry[] = [];
-  for (const plan of program.pagePlans) {
-    for (const entry of plan.publish(content)) {
-      routes.push(entry);
-    }
-  }
+  const candidate = publishRoutes(program, content);
   return Object.freeze({
-    version: content.version,
-    publishedAt: content.publishedAt,
-    programRevision: program.programRevision,
-    content: freezeContentSnapshot(content),
-    routes: Object.freeze(routes.map(freezeRouteEntry)),
+    ...candidate,
+    content: freezeContentSnapshot(candidate.content),
+    routes: Object.freeze(candidate.routes.map(freezeRouteEntry)),
   });
 }
 

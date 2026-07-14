@@ -1,6 +1,5 @@
 import { readdir } from "node:fs/promises";
 import { relative, resolve } from "node:path";
-import picomatch from "picomatch";
 import { buildContentRecord } from "../content.ts";
 import type {
   CollectionDefinition,
@@ -16,13 +15,6 @@ export interface ContentSnapshot {
   readonly records: readonly ContentRecord[];
   readonly byId: ReadonlyMap<string, ContentRecord>;
   readonly byCollection: Readonly<Record<string, readonly ContentRecord[]>>;
-}
-
-export interface ItemRouteSpec {
-  readonly path: string;
-  readonly collection: string;
-  readonly match: string;
-  readonly canonical: boolean;
 }
 
 export async function buildContentSnapshot(
@@ -53,10 +45,6 @@ export function assembleContentSnapshot(
     program.collectionMatchers,
     records,
   );
-  const canonicalUrls = buildCanonicalUrls(
-    program.itemRoutes,
-    selectedByCollection,
-  );
   const byCollection = Object.fromEntries(
     Object.entries(selectedByCollection).map(([name, selected]) => [
       name,
@@ -64,7 +52,6 @@ export function assembleContentSnapshot(
         selected.map((record) =>
           Object.freeze({
             ...record,
-            url: canonicalUrls.get(record.id) ?? "",
             attributes: Object.freeze({ ...record.attributes }),
           }),
         ),
@@ -73,14 +60,12 @@ export function assembleContentSnapshot(
   ) as Readonly<Record<string, readonly ContentRecord[]>>;
 
   const publishedRecords = Object.freeze(
-    records.map((record) => {
-      const withUrl = Object.freeze({
+    records.map((record) =>
+      Object.freeze({
         ...record,
-        url: canonicalUrls.get(record.id) ?? "",
         attributes: Object.freeze({ ...record.attributes }),
-      });
-      return withUrl;
-    }),
+      }),
+    ),
   );
 
   return Object.freeze({
@@ -92,79 +77,6 @@ export function assembleContentSnapshot(
     ),
     byCollection: Object.freeze(byCollection),
   });
-}
-
-export function compileCollectionMatchers(
-  definitions: Readonly<Record<string, CollectionDefinition>>,
-): Readonly<Record<string, (sourcePath: string) => boolean>> {
-  return Object.freeze(
-    Object.fromEntries(
-      Object.entries(definitions).map(([name, definition]) => {
-        try {
-          const matches = picomatch(normalizeSourcePath(definition.from), {
-            strictBrackets: true,
-          });
-          return [
-            name,
-            (sourcePath: string) => matches(normalizeSourcePath(sourcePath)),
-          ];
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          throw new Error(
-            `Invalid collection glob ${name} (${definition.from}): ${message}`,
-          );
-        }
-      }),
-    ),
-  );
-}
-
-export function matchPathPattern(
-  pattern: string,
-  sourcePath: string,
-): Record<string, string> | null {
-  const names: string[] = [];
-  const expression = normalizeSourcePath(pattern)
-    .split("/")
-    .map((segment) => {
-      if (segment.startsWith(":")) {
-        const suffixIndex = segment.indexOf(".");
-        const name = segment.slice(1, suffixIndex < 0 ? undefined : suffixIndex);
-        const suffix =
-          suffixIndex < 0 ? "" : escapeRegExp(segment.slice(suffixIndex));
-        names.push(name);
-        return `([^/]+)${suffix}`;
-      }
-      return escapeRegExp(segment).replaceAll("\\*", "[^/]*");
-    })
-    .join("/");
-  const match = new RegExp(`^${expression}$`).exec(
-    normalizeSourcePath(sourcePath),
-  );
-  if (!match) {
-    return null;
-  }
-  return Object.fromEntries(
-    names.map((name, index) => [name, match[index + 1] ?? ""]),
-  );
-}
-
-export function buildRoutePath(
-  pattern: string,
-  parameters: Readonly<Record<string, string>>,
-): string {
-  const path = pattern.replace(/:([^/]+)/g, (_, name: string) => {
-    const value = parameters[name];
-    if (value === undefined) {
-      throw new Error(`Route parameter :${name} cannot be generated`);
-    }
-    return encodeURIComponent(value);
-  });
-  return normalizeRoutePath(path);
-}
-
-export function normalizeRoutePath(path: string): string {
-  return path === "/" ? path : path.replace(/\/+$/, "");
 }
 
 function selectCollections(
@@ -193,51 +105,6 @@ function selectCollections(
         compareRecords(left, right, definition.orderBy ?? []),
       );
       return [name, Object.freeze(selected)];
-    }),
-  );
-}
-
-function buildCanonicalUrls(
-  itemRoutes: readonly ItemRouteSpec[],
-  collections: Readonly<Record<string, readonly ContentRecord[]>>,
-): ReadonlyMap<string, string> {
-  const candidates = new Map<
-    string,
-    { readonly path: string; readonly canonical: boolean }[]
-  >();
-  const seenUrls = new Map<string, string>();
-  for (const route of itemRoutes) {
-    for (const record of collections[route.collection] ?? []) {
-      const parameters = matchPathPattern(route.match, record.sourcePath);
-      if (!parameters) {
-        continue;
-      }
-      const path = buildRoutePath(route.path, parameters);
-      const previousSource = seenUrls.get(path);
-      if (previousSource) {
-        throw new Error(
-          `Duplicate URL ${path}: ${previousSource} and ${record.sourcePath}`,
-        );
-      }
-      seenUrls.set(path, record.sourcePath);
-      const recordCandidates = candidates.get(record.id) ?? [];
-      recordCandidates.push({ path, canonical: route.canonical });
-      candidates.set(record.id, recordCandidates);
-    }
-  }
-
-  return new Map(
-    [...candidates].map(([id, urls]) => {
-      if (urls.length === 1) {
-        return [id, urls[0]!.path];
-      }
-      const canonical = urls.filter((candidate) => candidate.canonical);
-      if (canonical.length !== 1) {
-        throw new Error(
-          `Content ID ${id} has multiple URLs and must declare exactly one canonical route`,
-        );
-      }
-      return [id, canonical[0]!.path];
     }),
   );
 }
@@ -438,8 +305,4 @@ function compareStrings(left: string, right: string): number {
 
 function normalizeSourcePath(path: string): string {
   return path.replaceAll("\\", "/");
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

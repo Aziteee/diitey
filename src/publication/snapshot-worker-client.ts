@@ -1,3 +1,4 @@
+import type { BuiltIslands } from "../islands.ts";
 import type { PublicationCandidate } from "./effective-publication.ts";
 
 type WorkerResult =
@@ -18,6 +19,7 @@ export class SnapshotWorker {
   private constructor(
     private readonly root: string,
     private readonly programRevision: string,
+    private readonly islands: BuiltIslands,
   ) {
     this.ready = this.spawn();
   }
@@ -25,8 +27,9 @@ export class SnapshotWorker {
   static async create(
     root: string,
     programRevision: string,
+    islands: BuiltIslands,
   ): Promise<SnapshotWorker> {
-    const builder = new SnapshotWorker(root, programRevision);
+    const builder = new SnapshotWorker(root, programRevision, islands);
     await builder.ready;
     return builder;
   }
@@ -131,6 +134,7 @@ export class SnapshotWorker {
         type: "initialize",
         root: this.root,
         programRevision: this.programRevision,
+        islands: this.islands,
       });
     });
   }

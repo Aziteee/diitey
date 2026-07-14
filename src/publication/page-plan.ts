@@ -8,16 +8,13 @@ import type {
   ServiceBinding,
 } from "../index.ts";
 import { renderPageWithIslands, type BuiltIslands } from "../islands.ts";
+import { runWithTimeout } from "../plugin-invoke.ts";
 import {
   callPluginService,
   type PluginRuntime,
 } from "../plugins.ts";
 import type { ContentSnapshot } from "./content-snapshot.ts";
-import {
-  buildRoutePath,
-  matchPathPattern,
-  normalizeRoutePath,
-} from "./content-snapshot.ts";
+import { normalizeRoutePath } from "./route-pattern.ts";
 
 export interface RequestRuntime {
   readonly pluginRuntime: PluginRuntime;
@@ -44,7 +41,13 @@ export interface CompiledPagePlan {
   readonly id: string;
   readonly pageName: string;
   readonly pathPattern: string;
-  publish(snapshot: ContentSnapshot): readonly PublishedRouteEntry[];
+  publish(
+    snapshot: ContentSnapshot,
+    resolvedItems?: readonly {
+      readonly path: string;
+      readonly item: ContentRecord;
+    }[],
+  ): readonly PublishedRouteEntry[];
   render(
     entry: PublishedRouteEntry,
     request: Request,
@@ -54,7 +57,7 @@ export interface CompiledPagePlan {
 
 type ContentBinding = ItemBinding | ListBinding;
 
-interface ServicePlan {
+export interface ServicePlan {
   readonly name: string;
   readonly service: string;
   readonly literals: Readonly<Record<string, unknown>>;
@@ -66,25 +69,39 @@ interface ServicePlan {
   readonly dependsOn: ReadonlySet<string>;
 }
 
-interface CompiledBinding {
+export interface CompiledBinding {
   readonly name: string;
   readonly kind: "item" | "list" | "service";
   readonly content?: ContentBinding;
   readonly service?: ServicePlan;
 }
 
-export function compilePagePlan(options: {
-  readonly id: string;
+export interface PagePlanStages {
+  readonly bindings: readonly CompiledBinding[];
+  readonly itemBinding?: CompiledBinding;
+  readonly paginatedBinding?: CompiledBinding;
+  readonly servicePlans: readonly ServicePlan[];
+  readonly hasServices: boolean;
+}
+
+const emptyIslands: BuiltIslands = Object.freeze({
+  manifest: Object.freeze({}),
+  assets: Object.freeze([]),
+  runtimePath: "/assets/islands/hydrate.js",
+});
+
+export function compilePageBindings(options: {
   readonly pathPattern: string;
   readonly pageName: string;
-  readonly Page: ComponentType<Record<string, unknown>>;
   readonly data: Readonly<
     Record<string, ItemBinding | ListBinding | ServiceBinding>
   >;
-  readonly pluginRuntime: PluginRuntime;
-  readonly islands: BuiltIslands;
-  readonly themeConfig: unknown;
-}): CompiledPagePlan {
+  readonly pluginRuntime?: PluginRuntime;
+}): PagePlanStages {
+  const pluginRuntime: PluginRuntime = options.pluginRuntime ?? {
+    services: Object.freeze({}),
+    actions: Object.freeze({}),
+  };
   const bindings = Object.entries(options.data);
   if (bindings.length === 0) {
     throw new Error(`Theme page ${options.pageName} must declare data`);
@@ -92,7 +109,7 @@ export function compilePagePlan(options: {
 
   const compiled: CompiledBinding[] = bindings.map(([name, binding]) => {
     if ("service" in binding) {
-      if (!options.pluginRuntime.services[binding.service]) {
+      if (!pluginRuntime.services[binding.service]) {
         throw new Error(`Unknown plugin service: ${binding.service}`);
       }
       return {
@@ -129,27 +146,11 @@ export function compilePagePlan(options: {
   const serviceBindings = compiled.filter(
     (binding) => binding.kind === "service",
   );
-  validateServiceDependencies(
-    options.pageName,
-    compiled,
-    serviceBindings.map((binding) => binding.service!),
-  );
+  const servicePlans = serviceBindings.map((binding) => binding.service!);
+  validateServiceDependencies(options.pageName, compiled, servicePlans);
 
   const itemBinding = itemBindings[0];
-  const paginatedBinding = paginated[0];
-  const hasServices = serviceBindings.length > 0;
   const isStaticPath = !options.pathPattern.includes(":");
-  const renderThemePage = (
-    data: Record<string, unknown>,
-    islands: BuiltIslands = options.islands,
-  ): string =>
-    renderPageWithIslands(
-      options.Page,
-      data,
-      islands,
-      options.themeConfig,
-    );
-
   if (itemBinding === undefined && !isStaticPath) {
     throw new Error(
       `Route ${options.pathPattern} has parameters but no item binding`,
@@ -157,140 +158,205 @@ export function compilePagePlan(options: {
   }
 
   return Object.freeze({
-    id: options.id,
-    pageName: options.pageName,
-    pathPattern: options.pathPattern,
-    publish(snapshot: ContentSnapshot): readonly PublishedRouteEntry[] {
-      if (itemBinding?.content && "match" in itemBinding.content) {
-        const itemName = itemBinding.name;
-        const itemSpec = itemBinding.content;
-        const entries: PublishedRouteEntry[] = [];
-        for (const item of snapshot.byCollection[itemSpec.collection] ?? []) {
-          const parameters = matchPathPattern(itemSpec.match, item.sourcePath);
-          if (!parameters) continue;
-          const path = buildRoutePath(options.pathPattern, parameters);
-          const publishData = buildContentData(compiled, snapshot, {
-            name: itemName,
-            item,
-          });
-          const title =
-            typeof item.attributes.title === "string"
-              ? item.attributes.title
-              : "Diitey";
-          if (hasServices) {
-            entries.push(
-              Object.freeze({
-                path,
-                title,
-                planId: options.id,
-                publishData: Object.freeze(publishData),
-              }),
-            );
-          } else {
-            entries.push(
-              Object.freeze({
-                path,
-                title,
-                planId: options.id,
-                publishData: Object.freeze(publishData),
-                body: renderThemePage(publishData),
-              }),
-            );
-          }
-        }
-        return Object.freeze(entries);
-      }
+    bindings: Object.freeze(compiled),
+    itemBinding,
+    paginatedBinding: paginated[0],
+    servicePlans: Object.freeze(servicePlans),
+    hasServices: servicePlans.length > 0,
+  });
+}
 
-      const path = normalizeRoutePath(options.pathPattern);
-      const publishData = buildContentData(compiled, snapshot);
-      if (paginatedBinding?.content && "paginate" in paginatedBinding.content) {
-        const pageSize = paginatedBinding.content.paginate;
-        if (
-          pageSize === undefined ||
-          !Number.isInteger(pageSize) ||
-          pageSize <= 0
-        ) {
-          throw new Error("paginate must be a positive integer");
-        }
-        const listBinding = paginatedBinding.content;
-        const selected = applyLimit(
-          snapshot.byCollection[listBinding.collection] ?? [],
-          listBinding.limit,
-        );
-        if (hasServices) {
-          return Object.freeze([
-            Object.freeze({
-              path,
-              title: "Diitey",
-              planId: options.id,
-              publishData: Object.freeze(publishData),
-              pagination: Object.freeze({
-                pageSize,
-                bindingName: paginatedBinding.name,
-                items: Object.freeze(selected),
-              }),
-            }),
-          ]);
-        }
-        const renderItemsPage = (
-          items: readonly ContentRecord[],
-          pageNumber: number,
-        ) =>
-          renderThemePage({
-            ...publishData,
-            [paginatedBinding.name]: items,
-            pagination: buildPagination(
-              path,
-              pageNumber,
-              pageSize,
-              selected.length,
-            ),
-          });
-        const totalPages = Math.ceil(selected.length / pageSize);
-        const bodies = Array.from({ length: totalPages }, (_, index) =>
-          renderItemsPage(
-            selected.slice(index * pageSize, (index + 1) * pageSize),
-            index + 1,
-          ),
-        );
-        return Object.freeze([
+export function publishPageEntries(options: {
+  readonly planId: string;
+  readonly pathPattern: string;
+  readonly stages: PagePlanStages;
+  readonly snapshot: ContentSnapshot;
+  readonly resolvedItems?: readonly {
+    readonly path: string;
+    readonly item: ContentRecord;
+  }[];
+  readonly renderThemePage?: (
+    data: Record<string, unknown>,
+  ) => string;
+}): readonly PublishedRouteEntry[] {
+  const {
+    planId,
+    pathPattern,
+    stages,
+    snapshot,
+    resolvedItems,
+    renderThemePage,
+  } = options;
+  const { bindings, itemBinding, paginatedBinding, hasServices } = stages;
+
+  if (itemBinding?.content && "match" in itemBinding.content) {
+    const itemName = itemBinding.name;
+    const entries: PublishedRouteEntry[] = [];
+    for (const { path, item } of resolvedItems ?? []) {
+      const publishData = buildContentData(bindings, snapshot, {
+        name: itemName,
+        item,
+      });
+      const title =
+        typeof item.attributes.title === "string"
+          ? item.attributes.title
+          : "Diitey";
+      if (hasServices || !renderThemePage) {
+        entries.push(
           Object.freeze({
             path,
-            title: "Diitey",
-            planId: options.id,
+            title,
+            planId,
             publishData: Object.freeze(publishData),
-            body: bodies[0] ??
-              renderItemsPage([], 1),
-            pagination: Object.freeze({
-              pageSize,
-              bindingName: paginatedBinding.name,
-              items: Object.freeze(selected),
-              bodies: Object.freeze(bodies),
-            }),
           }),
-        ]);
-      }
-
-      if (hasServices) {
-        return Object.freeze([
+        );
+      } else {
+        entries.push(
           Object.freeze({
             path,
-            title: "Diitey",
-            planId: options.id,
+            title,
+            planId,
             publishData: Object.freeze(publishData),
+            body: renderThemePage(publishData),
           }),
-        ]);
+        );
       }
+    }
+    return Object.freeze(entries);
+  }
 
+  const path = normalizeRoutePath(pathPattern);
+  const publishData = buildContentData(bindings, snapshot);
+  if (paginatedBinding?.content && "paginate" in paginatedBinding.content) {
+    const pageSize = paginatedBinding.content.paginate;
+    if (
+      pageSize === undefined ||
+      !Number.isInteger(pageSize) ||
+      pageSize <= 0
+    ) {
+      throw new Error("paginate must be a positive integer");
+    }
+    const listBinding = paginatedBinding.content;
+    const selected = applyLimit(
+      snapshot.byCollection[listBinding.collection] ?? [],
+      listBinding.limit,
+    );
+    if (hasServices || !renderThemePage) {
       return Object.freeze([
         Object.freeze({
           path,
           title: "Diitey",
-          planId: options.id,
+          planId,
           publishData: Object.freeze(publishData),
-          body: renderThemePage(publishData),
+          pagination: Object.freeze({
+            pageSize,
+            bindingName: paginatedBinding.name,
+            items: Object.freeze(selected),
+          }),
         }),
       ]);
+    }
+    const renderItemsPage = (
+      items: readonly ContentRecord[],
+      pageNumber: number,
+    ) =>
+      renderThemePage({
+        ...publishData,
+        [paginatedBinding.name]: items,
+        pagination: buildPagination(path, pageNumber, pageSize, selected.length),
+      });
+    const totalPages = Math.ceil(selected.length / pageSize);
+    const bodies = Array.from({ length: totalPages }, (_, index) =>
+      renderItemsPage(
+        selected.slice(index * pageSize, (index + 1) * pageSize),
+        index + 1,
+      ),
+    );
+    return Object.freeze([
+      Object.freeze({
+        path,
+        title: "Diitey",
+        planId,
+        publishData: Object.freeze(publishData),
+        body: bodies[0] ?? renderItemsPage([], 1),
+        pagination: Object.freeze({
+          pageSize,
+          bindingName: paginatedBinding.name,
+          items: Object.freeze(selected),
+          bodies: Object.freeze(bodies),
+        }),
+      }),
+    ]);
+  }
+
+  if (hasServices || !renderThemePage) {
+    return Object.freeze([
+      Object.freeze({
+        path,
+        title: "Diitey",
+        planId,
+        publishData: Object.freeze(publishData),
+      }),
+    ]);
+  }
+
+  return Object.freeze([
+    Object.freeze({
+      path,
+      title: "Diitey",
+      planId,
+      publishData: Object.freeze(publishData),
+      body: renderThemePage(publishData),
+    }),
+  ]);
+}
+
+export function compilePagePlan(options: {
+  readonly id: string;
+  readonly pathPattern: string;
+  readonly pageName: string;
+  readonly Page: ComponentType<Record<string, unknown>>;
+  readonly data: Readonly<
+    Record<string, ItemBinding | ListBinding | ServiceBinding>
+  >;
+  readonly pluginRuntime: PluginRuntime;
+  readonly islands?: BuiltIslands;
+  readonly themeConfig?: unknown;
+}): CompiledPagePlan {
+  const islands = options.islands ?? emptyIslands;
+  const themeConfig = options.themeConfig;
+  const stages = compilePageBindings({
+    pathPattern: options.pathPattern,
+    pageName: options.pageName,
+    data: options.data,
+    pluginRuntime: options.pluginRuntime,
+  });
+  const { hasServices, servicePlans } = stages;
+  const renderThemePage = (
+    data: Record<string, unknown>,
+    requestIslands: BuiltIslands = islands,
+  ): string =>
+    renderPageWithIslands(options.Page, data, requestIslands, themeConfig);
+
+  return Object.freeze({
+    id: options.id,
+    pageName: options.pageName,
+    pathPattern: options.pathPattern,
+    publish(
+      snapshot: ContentSnapshot,
+      resolvedItems?: readonly {
+        readonly path: string;
+        readonly item: ContentRecord;
+      }[],
+    ): readonly PublishedRouteEntry[] {
+      return publishPageEntries({
+        planId: options.id,
+        pathPattern: options.pathPattern,
+        stages,
+        snapshot,
+        resolvedItems,
+        renderThemePage: (data) => renderThemePage(data),
+      });
     },
     async render(
       entry: PublishedRouteEntry,
@@ -352,11 +418,7 @@ export function compilePagePlan(options: {
       }
 
       if (hasServices) {
-        const serviceData = await resolveServices(
-          serviceBindings.map((binding) => binding.service!),
-          data,
-          runtime,
-        );
+        const serviceData = await resolveServices(servicePlans, data, runtime);
         data = { ...data, ...serviceData };
       }
 
@@ -582,25 +644,4 @@ function readDataPath(
     value = (value as Record<string, unknown>)[segment];
   }
   return value;
-}
-
-async function runWithTimeout<T>(
-  timeoutMs: number,
-  operation: (signal: AbortSignal) => Promise<T>,
-): Promise<T> {
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation(controller.signal),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          controller.abort();
-          reject(new Error(`Plugin service timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
 }

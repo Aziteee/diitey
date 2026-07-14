@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { parse as parseCookie, serialize as serializeCookie } from "cookie";
+import { runWithTimeout } from "../plugin-invoke.ts";
 import {
   callPluginService,
   PluginInputError,
@@ -76,6 +77,7 @@ export async function openPublication(options: {
   const snapshotWorker = await SnapshotWorker.create(
     options.root,
     program.programRevision,
+    program.islands,
   );
   const pluginDatabase = await preparePluginDatabase(
     options.root,
@@ -371,27 +373,6 @@ async function handleAction(
       { error: "Action failed", requestId },
       { status: 500, headers: { "x-request-id": requestId } },
     );
-  }
-}
-
-async function runWithTimeout<T>(
-  timeoutMs: number,
-  operation: (signal: AbortSignal) => Promise<T>,
-): Promise<T> {
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation(controller.signal),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          controller.abort();
-          reject(new Error(`Plugin service timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
