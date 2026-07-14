@@ -200,6 +200,32 @@
     margin-bottom: 0;
   }
 
+  .content table {
+    @apply my-6 w-full border-collapse text-left;
+    display: table;
+    border: 1px solid var(--border);
+    font-size: 0.9375em;
+  }
+
+  .content thead {
+    background: var(--soft);
+  }
+
+  .content th {
+    @apply px-4 py-2.5 font-medium;
+    border-bottom: 1px solid var(--border);
+    color: var(--heading);
+  }
+
+  .content td {
+    @apply px-4 py-2.5;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .content tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
   .content hr {
     margin: 2rem 0;
     border: 0;
