@@ -87,6 +87,7 @@ export async function compileSiteProgram(
         data: definition.page.data,
         pluginRuntime,
         islands,
+        themeConfig: extensions.theme.config,
       });
     }),
   );

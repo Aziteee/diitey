@@ -83,6 +83,7 @@ export function compilePagePlan(options: {
   >;
   readonly pluginRuntime: PluginRuntime;
   readonly islands: BuiltIslands;
+  readonly themeConfig: unknown;
 }): CompiledPagePlan {
   const bindings = Object.entries(options.data);
   if (bindings.length === 0) {
@@ -138,6 +139,16 @@ export function compilePagePlan(options: {
   const paginatedBinding = paginated[0];
   const hasServices = serviceBindings.length > 0;
   const isStaticPath = !options.pathPattern.includes(":");
+  const renderThemePage = (
+    data: Record<string, unknown>,
+    islands: BuiltIslands = options.islands,
+  ): string =>
+    renderPageWithIslands(
+      options.Page,
+      data,
+      islands,
+      options.themeConfig,
+    );
 
   if (itemBinding === undefined && !isStaticPath) {
     throw new Error(
@@ -182,11 +193,7 @@ export function compilePagePlan(options: {
                 title,
                 planId: options.id,
                 publishData: Object.freeze(publishData),
-                body: renderPageWithIslands(
-                  options.Page,
-                  publishData,
-                  options.islands,
-                ),
+                body: renderThemePage(publishData),
               }),
             );
           }
@@ -225,21 +232,19 @@ export function compilePagePlan(options: {
             }),
           ]);
         }
-        const renderPage = (items: readonly ContentRecord[]) =>
-          renderPageWithIslands(
-            options.Page,
-            {
-              ...publishData,
-              [paginatedBinding.name]: items,
-            },
-            options.islands,
-          );
+        const renderItemsPage = (items: readonly ContentRecord[]) =>
+          renderThemePage({
+            ...publishData,
+            [paginatedBinding.name]: items,
+          });
         const bodies = Array.from(
           { length: Math.ceil(selected.length / pageSize) },
           (_, index) =>
-            renderPage(selected.slice(index * pageSize, (index + 1) * pageSize)),
+            renderItemsPage(
+              selected.slice(index * pageSize, (index + 1) * pageSize),
+            ),
         );
-        const emptyBody = renderPage([]);
+        const emptyBody = renderItemsPage([]);
         return Object.freeze([
           Object.freeze({
             path,
@@ -275,11 +280,7 @@ export function compilePagePlan(options: {
           title: "Diitey",
           planId: options.id,
           publishData: Object.freeze(publishData),
-          body: renderPageWithIslands(
-            options.Page,
-            publishData,
-            options.islands,
-          ),
+          body: renderThemePage(publishData),
         }),
       ]);
     },
@@ -332,7 +333,7 @@ export function compilePagePlan(options: {
         data = { ...data, ...serviceData };
       }
 
-      return renderPageWithIslands(options.Page, data, runtime.islands);
+      return renderThemePage(data, runtime.islands);
     },
   });
 }

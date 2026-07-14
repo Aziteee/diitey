@@ -190,6 +190,10 @@ describe("reliable reload loop", () => {
   test("public listener never exposes the reserved system namespace", async () => {
     const siteRoot = await copyFixtureSite();
     await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `export default { theme: "./themes/minimal/theme.ts" };\n`,
+    );
+    await writeFile(
       join(siteRoot, "themes", "minimal", "theme.ts"),
       `import { collection, defineTheme, page, route } from "../../../../../src/index.ts";\n\nexport default defineTheme({\n  collections: {\n    writing: collection({ from: "hello.md", schema: { title: "string" } }),\n  },\n  routes: [\n    route("/_system/status", page("article", {\n      item: { collection: "writing", match: "hello.md" },\n    })),\n  ],\n});\n`,
     );

@@ -9,10 +9,20 @@ import type { RuntimeInfo } from "./runtime-info.ts";
 
 const positiveInteger = z.number().int().positive();
 
+const extensionReferenceSchema = z.union([
+  z.string().min(1),
+  z
+    .object({
+      use: z.string().min(1),
+      config: z.unknown().optional(),
+    })
+    .strict(),
+]);
+
 const siteDefinitionSchema = z
   .object({
-    theme: z.string().min(1),
-    plugins: z.array(z.string().min(1)).optional(),
+    theme: extensionReferenceSchema,
+    plugins: z.array(extensionReferenceSchema).optional(),
     reload: z
       .object({
         timeoutMs: positiveInteger.optional(),
@@ -180,6 +190,26 @@ const runtimeInfoSchema = z
 
 export function parseSiteDefinition(value: unknown): SiteDefinition {
   return parseDefinition(siteDefinitionSchema, value, "site config");
+}
+
+export function parseConfiguredValue<Value>(
+  schema: ValueSchema<Value>,
+  value: unknown,
+  label: string,
+): Value {
+  try {
+    return schema.parse(value);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const issue = error.issues[0];
+      const path = issue?.path.length ? `.${issue.path.join(".")}` : "";
+      throw new Error(
+        `${label}${path}: ${issue?.message ?? "invalid configuration"}`,
+      );
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${label}: ${message}`);
+  }
 }
 
 export function parseThemeDefinition(

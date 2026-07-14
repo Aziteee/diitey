@@ -30,6 +30,7 @@ describe("minimal publishing loop", () => {
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(html).toContain("<!doctype html>");
     expect(html).toContain("<title>Hello, Diitey</title>");
+    expect(html).toContain("Diitey Minimal Site");
     expect(html).toContain("<h1>Hello, Diitey</h1>");
     expect(html).toContain("<p>This page came from a Markdown content file.</p>");
     expect(html).toContain("<h2>What this fixture covers</h2>");
@@ -145,6 +146,161 @@ describe("minimal publishing loop", () => {
     expect(html).toContain("<h1>Package: Hello, Diitey</h1>");
   }, 10_000);
 
+  test("site owner can configure a theme and pages can read the parsed configuration", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `import { defineSite } from "diitey";
+      export default defineSite({
+        theme: {
+          use: "./themes/minimal/theme.ts",
+          config: { heading: "Configured theme" },
+        },
+        plugins: ["./plugins/todo-list/plugin.ts"],
+      });\n`,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "theme.ts"),
+      `import { z } from "zod";
+      import { collection, defineTheme, page, route } from "diitey";
+      export default defineTheme({
+        config: z.object({ heading: z.string().min(1) }).strict(),
+        setup() {
+          return {
+            collections: {
+              writing: collection({ from: "hello.md", schema: { title: "string" } }),
+            },
+            routes: [
+              route("/configured-theme", page("configured-theme", {
+                item: { collection: "writing", match: "hello.md" },
+              })),
+            ],
+          };
+        },
+      });\n`,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "pages", "configured-theme.tsx"),
+      `import { useThemeConfig } from "diitey";
+      export default function ConfiguredTheme() {
+        const config = useThemeConfig<{ heading: string }>();
+        return <h1>{config.heading}</h1>;
+      }\n`,
+    );
+
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+    const html = await fetch(`${address}/configured-theme`).then((response) =>
+      response.text(),
+    );
+
+    expect(html).toContain("<h1>Configured theme</h1>");
+  });
+
+  test("a configurable theme can supply a root default when configuration is omitted", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `import { defineSite } from "diitey";
+      export default defineSite({ theme: "./themes/minimal/theme.ts" });\n`,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "theme.ts"),
+      `import { z } from "zod";
+      import { collection, defineTheme, page, route } from "diitey";
+      export default defineTheme({
+        config: z.string().default("Default theme"),
+        setup() {
+          return {
+            collections: {
+              writing: collection({ from: "hello.md", schema: { title: "string" } }),
+            },
+            routes: [route("/default-theme", page("default-theme", {
+              item: { collection: "writing", match: "hello.md" },
+            }))],
+          };
+        },
+      });\n`,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "pages", "default-theme.tsx"),
+      `import { useThemeConfig } from "diitey";
+      export default function DefaultTheme() {
+        const config = useThemeConfig<string>();
+        return <h1>{config}</h1>;
+      }\n`,
+    );
+
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+    const html = await fetch(`${address}/default-theme`).then((response) =>
+      response.text(),
+    );
+
+    expect(html).toContain("<h1>Default theme</h1>");
+  });
+
+  test("site owner can configure a plugin and services use the parsed configuration", async () => {
+    const siteRoot = await copyFixtureSite();
+    const pluginRoot = join(siteRoot, "plugins", "configured");
+    await mkdir(pluginRoot, { recursive: true });
+    await writeFile(
+      join(pluginRoot, "plugin.ts"),
+      `import { z } from "zod";
+      import { definePlugin } from "diitey";
+      export default definePlugin({
+        config: z.object({ message: z.string().min(1) }).strict(),
+        setup(config) {
+          return {
+            id: "configured",
+            services: {
+              "configured.message": {
+                input: z.object({}).strict(),
+                output: z.string(),
+                handler() { return config.message; },
+              },
+            },
+          };
+        },
+      });\n`,
+    );
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `import { defineSite } from "diitey";
+      export default defineSite({
+        theme: "./themes/minimal/theme.ts",
+        plugins: [{
+          use: "./plugins/configured/plugin.ts",
+          config: { message: "Configured plugin" },
+        }],
+      });\n`,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "theme.ts"),
+      `import { defineTheme, page, route } from "diitey";
+      export default defineTheme({
+        collections: {},
+        routes: [route("/configured-plugin", page("configured-plugin", {
+          message: { service: "configured.message", input: {} },
+        }))],
+      });\n`,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "pages", "configured-plugin.tsx"),
+      `export default function ConfiguredPlugin({ message }: { message: string }) {
+        return <h1>{message}</h1>;
+      }\n`,
+    );
+
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+    const html = await fetch(`${address}/configured-plugin`).then((response) =>
+      response.text(),
+    );
+
+    expect(html).toContain("<h1>Configured plugin</h1>");
+  });
+
   test("site owner sees the invalid site config field when startup validation fails", async () => {
     const siteRoot = await copyFixtureSite();
     await writeFile(
@@ -158,9 +314,45 @@ describe("minimal publishing loop", () => {
     expect(error).toContain("site config.theme");
   });
 
+  test("site owner sees the invalid theme configuration field before a database is opened", async () => {
+    const siteRoot = await copyFixtureSite();
+    await rm(join(siteRoot, "data"), { recursive: true, force: true });
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `import { defineSite } from "diitey";
+      export default defineSite({
+        theme: {
+          use: "./themes/minimal/theme.ts",
+          config: { heading: 42 },
+        },
+      });\n`,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "theme.ts"),
+      `import { z } from "zod";
+      import { defineTheme } from "diitey";
+      export default defineTheme({
+        config: z.object({ heading: z.string() }).strict(),
+        setup() { return { collections: {}, routes: [] }; },
+      });\n`,
+    );
+
+    const { exitCode, error } = await waitForStartFailure(spawnSite(siteRoot));
+
+    expect(exitCode).toBe(1);
+    expect(error).toContain("site config.theme.config.heading");
+    expect(
+      await Bun.file(join(siteRoot, "data", "site.sqlite")).exists(),
+    ).toBe(false);
+  });
+
   test("site owner sees the invalid theme field before a database is opened", async () => {
     const siteRoot = await copyFixtureSite();
     await rm(join(siteRoot, "data"), { recursive: true, force: true });
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `export default { theme: "./themes/minimal/theme.ts" };\n`,
+    );
     await writeFile(
       join(siteRoot, "themes", "minimal", "theme.ts"),
       `export default { collections: {}, routes: "not-an-array" };\n`,

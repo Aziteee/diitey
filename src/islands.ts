@@ -28,6 +28,18 @@ interface IslandProps<Props extends Record<string, unknown>> {
 }
 
 const IslandBuildContext = createContext<BuiltIslands | null>(null);
+const missingThemeConfig = Symbol("missing theme config");
+const ThemeConfigContext = createContext<unknown>(missingThemeConfig);
+
+export function useThemeConfig<Config>(): Readonly<Config> {
+  const config = useContext(ThemeConfigContext);
+  if (config === missingThemeConfig) {
+    throw new Error(
+      "Theme configuration is only available while rendering a theme page",
+    );
+  }
+  return config as Readonly<Config>;
+}
 
 export function Island<Props extends Record<string, unknown>>({
   name,
@@ -54,7 +66,11 @@ export function Island<Props extends Record<string, unknown>>({
         "data-diitey-island": name,
         "data-diitey-props": serializedProps,
       },
-      h(component, props),
+      h(
+        ThemeConfigContext.Provider,
+        { value: missingThemeConfig },
+        h(component, props),
+      ),
     ),
     h("script", { type: "module", src: islands.runtimePath }),
   ]);
@@ -93,9 +109,14 @@ export function renderPageWithIslands(
   Page: ComponentType<Record<string, unknown>>,
   data: Record<string, unknown>,
   islands: BuiltIslands,
+  themeConfig: unknown,
 ): string {
   return renderToString(
-    h(IslandBuildContext.Provider, { value: islands }, h(Page, data)),
+    h(
+      ThemeConfigContext.Provider,
+      { value: themeConfig },
+      h(IslandBuildContext.Provider, { value: islands }, h(Page, data)),
+    ),
   );
 }
 

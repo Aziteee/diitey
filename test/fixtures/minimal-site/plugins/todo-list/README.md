@@ -11,17 +11,25 @@
 
 ## 启用插件
 
-在站点的 `site.config.ts` 中加入插件路径：
+在站点的 `site.config.ts` 中加入插件路径和配置：
 
 ```ts
 export default defineSite({
   theme: "./themes/minimal/theme.ts",
-  plugins: ["./plugins/todo-list/plugin.ts"],
+  plugins: [
+    {
+      use: "./plugins/todo-list/plugin.ts",
+      config: {
+        maxTitleLength: 100,
+      },
+    },
+  ],
 });
 ```
 
 路径应按插件相对于实际站点根目录的位置调整。首次启动站点时，核心会在开始
-HTTP 监听前自动应用待处理插件迁移。
+HTTP 监听前校验配置并自动应用待处理插件迁移。可以把 `maxTitleLength` 临时改小，
+再向 `todo.create` 提交更长标题，观察插件配置驱动的输入校验。
 
 ## SSR 列表
 

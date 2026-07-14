@@ -106,6 +106,61 @@ describe("island loop", () => {
     expect(error).toContain("Island counter props must be JSON-serializable");
   }, 10_000);
 
+  test("an island cannot inherit theme configuration that the page did not pass as props", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeIslandFixture(siteRoot);
+    await writeFile(
+      join(siteRoot, "site.config.ts"),
+      `import { defineSite } from "diitey";
+      export default defineSite({
+        theme: {
+          use: "./themes/minimal/theme.ts",
+          config: { secret: "server-only-theme-value" },
+        },
+      });
+      `,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "theme.ts"),
+      `import { z } from "zod";
+      import { collection, defineTheme, page, route } from "../../../../../src/index.ts";
+
+      export default defineTheme({
+        config: z.object({ secret: z.string() }).strict(),
+        setup() {
+          return {
+            collections: {
+              writing: collection({ from: "hello.md", schema: { title: "string" } }),
+            },
+            routes: [
+              route("/writing/hello", page("interactive-article", {
+                item: { collection: "writing", match: "hello.md" },
+              })),
+            ],
+          };
+        },
+      });
+      `,
+    );
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "islands", "counter.tsx"),
+      `import { useThemeConfig } from "../../../../../../src/index.ts";
+
+      export default function Counter() {
+        const config = useThemeConfig<{ secret: string }>();
+        return <p>{config.secret}</p>;
+      }
+      `,
+    );
+
+    const error = await readStartupError(spawnSite(siteRoot));
+
+    expect(error).toContain(
+      "Theme configuration is only available while rendering a theme page",
+    );
+    expect(error).not.toContain("server-only-theme-value");
+  }, 10_000);
+
   test("a site cannot start when an island browser bundle fails to build", async () => {
     const siteRoot = await copyFixtureSite();
     await writeIslandFixture(siteRoot);
@@ -213,6 +268,10 @@ async function copyFixtureSite(): Promise<string> {
   await cp(join(import.meta.dir, "fixtures", "minimal-site"), root, {
     recursive: true,
   });
+  await writeFile(
+    join(root, "site.config.ts"),
+    `export default { theme: "./themes/minimal/theme.ts" };\n`,
+  );
   return root;
 }
 

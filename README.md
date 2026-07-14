@@ -58,6 +58,68 @@ export default defineSite({
 });
 ```
 
+主题和插件可以把引用与扩展配置写在同一个选择中。字符串引用仍是没有显式配置时的简写：
+
+```ts
+export default defineSite({
+  theme: {
+    use: "@diitey/theme-minimal",
+    config: {
+      siteName: "My Blog",
+      accentColor: "#6750a4",
+      pageSize: 10,
+    },
+  },
+  plugins: [
+    {
+      use: "@diitey/plugin-comments",
+      config: {
+        moderation: true,
+        maxLength: 1000,
+      },
+    },
+  ],
+});
+```
+
+扩展通过 schema 拥有配置校验和默认值，并在启动时用解析后的配置生成主题或插件定义：
+
+```ts
+import { z } from "zod";
+import { definePlugin } from "diitey";
+
+export default definePlugin({
+  config: z.object({
+    moderation: z.boolean().default(false),
+    maxLength: z.number().int().positive().default(1000),
+  }).strict(),
+  setup(config) {
+    return {
+      id: "comments",
+      services: {
+        // 服务处理器可以通过闭包使用解析后的 config。
+      },
+    };
+  },
+});
+```
+
+没有提供 `config` 时，核心把 `undefined` 交给 schema；扩展可以用
+`z.string().default(...)`、`z.array(...).default(...)` 或
+`z.object(...).default(...)` 声明整个配置的默认值。
+
+主进程和 snapshot worker 都会在启动阶段形成各自的站点程序，因此 `setup` 必须是
+确定且无外部副作用的定义工厂；数据库结构变更仍应通过插件迁移完成，运行期写入仍应
+通过插件服务完成。
+
+可配置主题使用相同的 `config` 与 `setup` 接口。主题页面可以在 SSR 期间调用
+`useThemeConfig<Config>()` 读取解析后的配置，再把浏览器确实需要的值显式作为
+island props 传递；核心不会自动向浏览器公开整份主题配置。
+
+扩展配置属于站点程序，修改后需要重启，不会由内容 `reload` 重新读取。较大的配置
+可以放在站点根目录的 `config/` 中，再由 `site.config.ts` 显式导入；`data/` 保留给
+SQLite、运行信息和插件动态数据，不存放人工维护的扩展配置。
+
 Diitey 不安装、升级或删除扩展包。站点所有者直接维护站点根目录的
 `package.json` 和 `bun.lock`，并使用 `bun install` 或 `bun add` 管理扩展及其
 额外依赖。本地主题和插件使用的额外依赖同样安装在站点根目录。

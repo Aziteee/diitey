@@ -1,6 +1,6 @@
 import type { Pluggable } from "unified";
 import type { Database } from "bun:sqlite";
-export { Island } from "./islands.ts";
+export { Island, useThemeConfig } from "./islands.ts";
 export { PluginNotFoundError } from "./plugins.ts";
 
 export type SchemaType =
@@ -13,6 +13,22 @@ export type SchemaType =
   | "number"
   | "number?";
 
+export interface ValueSchema<Value = unknown> {
+  parse(value: unknown): Value;
+}
+
+export interface ConfiguredExtensionSelection {
+  readonly use: string;
+  readonly config?: unknown;
+}
+
+export type ExtensionSelection = string | ConfiguredExtensionSelection;
+
+export interface ConfigurableDefinition<Config, Definition> {
+  readonly config: ValueSchema<Config>;
+  setup(config: Config): Definition;
+}
+
 export type WhereCondition =
   | string
   | number
@@ -23,8 +39,8 @@ export type WhereCondition =
   | { readonly exists: boolean };
 
 export interface SiteDefinition {
-  theme: string;
-  plugins?: readonly string[];
+  theme: ExtensionSelection;
+  plugins?: readonly ExtensionSelection[];
   reload?: {
     timeoutMs?: number;
   };
@@ -56,10 +72,6 @@ export interface PluginServiceContext {
   readonly content: {
     exists(contentId: string): boolean;
   };
-}
-
-export interface ValueSchema {
-  parse(value: unknown): unknown;
 }
 
 export interface PluginServiceDefinition {
@@ -141,11 +153,27 @@ export function defineSite(definition: SiteDefinition): SiteDefinition {
   return definition;
 }
 
-export function defineTheme(definition: ThemeDefinition): ThemeDefinition {
+export function defineTheme(definition: ThemeDefinition): ThemeDefinition;
+export function defineTheme<Config>(
+  definition: ConfigurableDefinition<Config, ThemeDefinition>,
+): ConfigurableDefinition<Config, ThemeDefinition>;
+export function defineTheme<Config>(
+  definition:
+    | ThemeDefinition
+    | ConfigurableDefinition<Config, ThemeDefinition>,
+): ThemeDefinition | ConfigurableDefinition<Config, ThemeDefinition> {
   return definition;
 }
 
-export function definePlugin(definition: PluginDefinition): PluginDefinition {
+export function definePlugin(definition: PluginDefinition): PluginDefinition;
+export function definePlugin<Config>(
+  definition: ConfigurableDefinition<Config, PluginDefinition>,
+): ConfigurableDefinition<Config, PluginDefinition>;
+export function definePlugin<Config>(
+  definition:
+    | PluginDefinition
+    | ConfigurableDefinition<Config, PluginDefinition>,
+): PluginDefinition | ConfigurableDefinition<Config, PluginDefinition> {
   return definition;
 }
 

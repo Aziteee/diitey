@@ -1,4 +1,5 @@
-import type { ContentRecord } from "diitey";
+import { type ContentRecord, useThemeConfig } from "diitey";
+import type { MinimalThemeConfig } from "../theme.ts";
 
 interface ArticleProps {
   item: ContentRecord;
@@ -6,9 +7,11 @@ interface ArticleProps {
 
 export default function Article({ item }: ArticleProps) {
   const title = String(item.attributes.title);
+  const config = useThemeConfig<MinimalThemeConfig>();
 
   return (
     <main>
+      <p data-site-name>{config.siteName}</p>
       <h1>{title}</h1>
       <div dangerouslySetInnerHTML={{ __html: item.html }} />
     </main>

@@ -1,11 +1,14 @@
 import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type {
+  ConfigurableDefinition,
+  ExtensionSelection,
   PluginDefinition,
   SiteDefinition,
   ThemeDefinition,
 } from "./index.ts";
 import {
+  parseConfiguredValue,
   parsePluginDefinition,
   parseSiteDefinition,
   parseThemeDefinition,
@@ -17,9 +20,13 @@ export interface LoadedExtension<T> {
   readonly definition: T;
 }
 
+interface LoadedConfiguredExtension<T> extends LoadedExtension<T> {
+  readonly config: unknown;
+}
+
 export interface LoadedSiteExtensions {
   readonly config: SiteDefinition;
-  readonly theme: LoadedExtension<ThemeDefinition>;
+  readonly theme: LoadedConfiguredExtension<ThemeDefinition>;
   readonly plugins: readonly LoadedExtension<PluginDefinition>[];
 }
 
@@ -33,10 +40,18 @@ export async function loadSiteExtensions(
     root,
     config.theme,
     "theme",
+    "site config.theme",
   );
   const plugins = await Promise.all(
-    (config.plugins ?? []).map((reference) =>
-      loadExtension<PluginDefinition>(root, reference, "plugin"),
+    (config.plugins ?? []).map(async (selection, index) =>
+      withoutConfig(
+        await loadExtension<PluginDefinition>(
+          root,
+          selection,
+          "plugin",
+          `site config.plugins.${index}`,
+        ),
+      ),
     ),
   );
   validatePluginIds(plugins);
@@ -67,15 +82,70 @@ function validatePluginIds(
 
 async function loadExtension<T>(
   root: string,
-  reference: string,
+  selection: ExtensionSelection,
   kind: "theme" | "plugin",
-): Promise<LoadedExtension<T>> {
+  selectionLabel: string,
+): Promise<LoadedConfiguredExtension<T>> {
+  const reference = typeof selection === "string" ? selection : selection.use;
   const entryPath = await resolveExtensionEntry(root, reference, kind);
   const imported = await importDefault(entryPath, `${kind} ${reference}`);
+  const label = `${kind} ${reference}`;
+  const hasConfiguredShape = isConfigurableDefinition(imported);
+  const hasConfig =
+    typeof selection !== "string" &&
+    Object.prototype.hasOwnProperty.call(selection, "config");
+  if (!hasConfiguredShape && hasConfig) {
+    throw new Error(
+      `${selectionLabel}.config: ${label} does not declare configuration`,
+    );
+  }
+  const parsedConfig = hasConfiguredShape
+    ? parseConfiguredValue(
+        imported.config,
+        hasConfig && typeof selection !== "string"
+          ? selection.config
+          : undefined,
+        `${selectionLabel}.config`,
+      )
+    : Object.freeze({});
+  const candidate = hasConfiguredShape
+    ? await imported.setup(parsedConfig)
+    : imported;
   const definition = (kind === "theme"
-    ? parseThemeDefinition(imported, `theme ${reference}`)
-    : parsePluginDefinition(imported, `plugin ${reference}`)) as T;
-  return Object.freeze({ reference, entryPath, definition });
+    ? parseThemeDefinition(candidate, label)
+    : parsePluginDefinition(candidate, label)) as T;
+  return Object.freeze({
+    reference,
+    entryPath,
+    definition,
+    config: parsedConfig,
+  });
+}
+
+function withoutConfig<T>(
+  extension: LoadedConfiguredExtension<T>,
+): LoadedExtension<T> {
+  return Object.freeze({
+    reference: extension.reference,
+    entryPath: extension.entryPath,
+    definition: extension.definition,
+  });
+}
+
+function isConfigurableDefinition(
+  value: unknown,
+): value is ConfigurableDefinition<unknown, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as {
+    config?: { parse?: unknown };
+    setup?: unknown;
+  };
+  return (
+    typeof candidate.config === "object" &&
+    candidate.config !== null &&
+    typeof candidate.config.parse === "function" &&
+    typeof candidate.setup === "function"
+  );
 }
 
 async function resolveExtensionEntry(

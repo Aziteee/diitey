@@ -485,6 +485,10 @@ async function copyFixtureSite(): Promise<string> {
   const root = await mkdtemp(join(import.meta.dir, "fixtures", ".content-routing-"));
   temporaryRoots.push(root);
   await cp(join(import.meta.dir, "fixtures", "minimal-site"), root, { recursive: true });
+  await writeFile(
+    join(root, "site.config.ts"),
+    `export default { theme: "./themes/minimal/theme.ts" };\n`,
+  );
   return root;
 }
 
