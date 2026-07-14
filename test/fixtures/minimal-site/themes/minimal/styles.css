@@ -1,0 +1,25 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.site-chrome {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #ccc;
+}
+
+.site-chrome a {
+  color: inherit;
+}
+
+main {
+  padding: 1.25rem;
+  max-width: 42rem;
+}

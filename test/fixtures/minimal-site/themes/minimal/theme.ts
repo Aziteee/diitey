@@ -26,6 +26,7 @@ export default defineTheme({
   setup(config) {
     return {
       document: "document",
+      styles: "styles",
       collections: {
         writing: collection({
           from: "hello.md",

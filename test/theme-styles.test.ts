@@ -28,6 +28,38 @@ afterEach(async () => {
 describe("theme stylesheet pipeline", () => {
   test("a theme without styles starts without a core theme stylesheet link", async () => {
     const siteRoot = await copyFixtureSite();
+    await stripThemeStyles(siteRoot);
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "pages", "document.tsx"),
+      `import type { ComponentChildren } from "preact";
+      import { useThemeConfig } from "diitey";
+      import type { MinimalThemeConfig } from "../theme.ts";
+
+      export default function Document({
+        title,
+        children,
+      }: {
+        title: string;
+        children: ComponentChildren;
+      }) {
+        const config = useThemeConfig<MinimalThemeConfig>();
+        return (
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <title>{title}</title>
+            </head>
+            <body>
+              <header data-document-chrome="site-nav">
+                <strong>{config.siteName}</strong>
+              </header>
+              {children}
+            </body>
+          </html>
+        );
+      }
+      `,
+    );
     const process = spawnSite(siteRoot);
     const address = await readServerAddress(process);
 
@@ -74,8 +106,9 @@ describe("theme stylesheet pipeline", () => {
 
   test("a declared stylesheet that is missing fails site startup", async () => {
     const siteRoot = await copyFixtureSite();
-    await writeThemeWithStyles(siteRoot, "styles");
-    // styles.css intentionally not written
+    await rm(join(siteRoot, "themes", "minimal", "styles.css"), {
+      force: true,
+    });
 
     const error = await readStartupError(spawnSite(siteRoot));
 
@@ -252,6 +285,18 @@ async function writeThemeWithStyles(
       `document: "document",\n      styles: ${JSON.stringify(styles)},`,
     ),
   );
+}
+
+async function stripThemeStyles(siteRoot: string): Promise<void> {
+  const themePath = join(siteRoot, "themes", "minimal", "theme.ts");
+  const source = await Bun.file(themePath).text();
+  await writeFile(
+    themePath,
+    source.replace(/\s*styles:\s*["'][^"']+["'],\s*/, "\n      "),
+  );
+  await rm(join(siteRoot, "themes", "minimal", "styles.css"), {
+    force: true,
+  });
 }
 
 async function copyFixtureSite(): Promise<string> {
