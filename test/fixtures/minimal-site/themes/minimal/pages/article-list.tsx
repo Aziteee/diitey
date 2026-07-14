@@ -10,7 +10,7 @@ export default function ArticleList({ items, pagination }: ArticleListProps) {
   const config = useThemeConfig<MinimalThemeConfig>();
 
   return (
-    <main>
+    <main class="max-w-2xl p-5">
       <p data-site-name>{config.siteName}</p>
       <h1>Writing</h1>
       <ol>

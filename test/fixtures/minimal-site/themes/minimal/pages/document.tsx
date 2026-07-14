@@ -13,20 +13,31 @@ export default function Document({
   const stylesheet = useThemeStylesheet();
 
   return (
-    <html lang="en">
+    <html lang="en" class="scheme-light-dark font-sans">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>{title}</title>
         <link rel="stylesheet" href={stylesheet} />
       </head>
-      <body>
-        <header class="site-chrome" data-document-chrome="site-nav">
+      <body class="m-0 leading-normal">
+        <header
+          class="flex gap-4 border-b border-neutral-300 px-5 py-4"
+          data-document-chrome="site-nav"
+        >
           <strong>{config.siteName}</strong>
-          <a href="/">Home</a>
-          <a href="/writing">Writing</a>
-          <a href="/todos">Todos</a>
-          <a href="/island-demo">Islands</a>
+          <a class="text-inherit no-underline" href="/">
+            Home
+          </a>
+          <a class="text-inherit no-underline" href="/writing">
+            Writing
+          </a>
+          <a class="text-inherit no-underline" href="/todos">
+            Todos
+          </a>
+          <a class="text-inherit no-underline" href="/island-demo">
+            Islands
+          </a>
         </header>
         {children}
       </body>

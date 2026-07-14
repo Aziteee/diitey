@@ -14,7 +14,7 @@ export default function TodoListPage({
   readonly items: readonly TodoItem[];
 }) {
   return (
-    <main>
+    <main class="max-w-2xl p-5">
       <h1>Todo list</h1>
       <Island
         name="todo-list"

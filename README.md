@@ -120,10 +120,11 @@ island props 传递；核心不会自动向浏览器公开整份主题配置。
 核心在启动时用 `Bun.build` 构建该入口，产出哈希路径
 `/assets/theme/styles-{hash}.css`，并在 SSR 中通过 `useThemeStylesheet()`
 提供 URL；主题 document 自行写入 `<link rel="stylesheet" href={...} />`。
-核心不依赖 Tailwind：主题若要用按需 utility CSS，在站点/主题包中安装
-`tailwindcss`，在 CSS 入口写 `@import "tailwindcss"`，并用 `@source` 覆盖
-`pages/**` 与 `islands/**`。未声明 `styles` 时行为不变；CSS 变更需重启站点，
-不会由内容 `reload` 重建。
+核心不依赖 Tailwind：主题若要用按需 utility CSS，在站点根安装
+`tailwindcss` 与 `bun-plugin-tailwind`，在 CSS 入口写 `@import "tailwindcss"`，
+并用 `@source` 覆盖 `pages/**` 与 `islands/**`。核心在构建样式表时若解析到
+`bun-plugin-tailwind` 会自动启用。未声明 `styles` 时行为不变；CSS 变更需重启
+站点，不会由内容 `reload` 重建。
 
 扩展配置属于站点程序，修改后需要重启，不会由内容 `reload` 重新读取。较大的配置
 可以放在站点根目录的 `config/` 中，再由 `site.config.ts` 显式导入；`data/` 保留给

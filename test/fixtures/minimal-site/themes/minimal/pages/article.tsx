@@ -10,7 +10,7 @@ export default function Article({ item }: ArticleProps) {
   const config = useThemeConfig<MinimalThemeConfig>();
 
   return (
-    <main>
+    <main class="max-w-2xl p-5">
       <p data-site-name>{config.siteName}</p>
       <h1>{title}</h1>
       <div dangerouslySetInnerHTML={{ __html: item.html }} />

@@ -13,7 +13,9 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/picomatch": "^4.0.3"
+    "@types/picomatch": "^4.0.3",
+    "bun-plugin-tailwind": "^0.1.2",
+    "tailwindcss": "^4.3.2"
   },
   "peerDependencies": {
     "typescript": "^5"

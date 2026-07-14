@@ -13,10 +13,8 @@ import type {
   PluginDefinition,
 } from "../index.ts";
 import { buildPluginRuntime, type PluginRuntime } from "../plugins.ts";
-import {
-  buildThemeStyles,
-  type BuiltThemeStyles,
-} from "../styles.ts";
+import { buildThemeStyles } from "../styles-build.ts";
+import type { BuiltThemeStyles } from "../styles.ts";
 import {
   compileCollectionMatchers,
   type ItemRouteSpec,
@@ -65,7 +63,7 @@ export async function compileSiteProgram(
     options.islands ?? (await buildThemeIslands(themePath));
   const styles =
     options.styles ??
-    (await buildThemeStyles(themePath, theme.styles));
+    (await buildThemeStyles(themePath, theme.styles, root));
   const plugins = extensions.plugins.map((plugin) => plugin.definition);
   const pluginRuntime = buildPluginRuntime(plugins);
   if (theme.routes.length === 0) {

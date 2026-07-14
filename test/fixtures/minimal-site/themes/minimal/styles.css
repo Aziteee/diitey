@@ -1,25 +1,61 @@
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
-}
+@import "tailwindcss";
+@source "./pages/**/*.{tsx,ts,jsx,js}";
+@source "./islands/**/*.{tsx,ts,jsx,js}";
 
-body {
-  margin: 0;
-  line-height: 1.5;
-}
+@layer base {
+  main h1 {
+    @apply mb-4 mt-0 text-3xl font-bold;
+  }
 
-.site-chrome {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #ccc;
-}
+  main h2 {
+    @apply mb-3 mt-6 text-2xl font-semibold;
+  }
 
-.site-chrome a {
-  color: inherit;
-}
+  main h3 {
+    @apply mb-2 mt-5 text-xl font-semibold;
+  }
 
-main {
-  padding: 1.25rem;
-  max-width: 42rem;
+  main h4 {
+    @apply mb-2 mt-4 text-lg font-semibold;
+  }
+
+  main p {
+    @apply my-3;
+  }
+
+  main a {
+    @apply text-blue-600 underline;
+  }
+
+  main ul {
+    @apply my-3 list-disc pl-6;
+  }
+
+  main ol {
+    @apply my-3 list-decimal pl-6;
+  }
+
+  main li {
+    @apply my-1;
+  }
+
+  main blockquote {
+    @apply my-4 border-l-4 border-neutral-300 pl-4 italic;
+  }
+
+  main code {
+    @apply rounded bg-neutral-100 px-1 py-0.5 font-mono text-sm;
+  }
+
+  main pre {
+    @apply my-4 overflow-x-auto rounded bg-neutral-100 p-4;
+  }
+
+  main pre code {
+    @apply bg-transparent p-0;
+  }
+
+  main hr {
+    @apply my-6 border-neutral-300;
+  }
 }
