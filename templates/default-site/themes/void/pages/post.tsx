@@ -1,6 +1,7 @@
-import { type ContentRecord, useThemeConfig } from "diitey";
+import { Island, type ContentRecord, useThemeConfig } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
 import { formatDate } from "../shared/date.ts";
+import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 
 interface PostProps {
   readonly post: ContentRecord;
@@ -11,7 +12,7 @@ export default function Post({ post }: PostProps) {
   const title = String(post.attributes.title);
 
   return (
-    <main class="mx-auto w-full max-w-[45rem] px-6 py-12 font-serif sm:px-8 sm:py-16">
+    <main class="post-page mx-auto w-full max-w-[45rem] px-6 py-12 font-serif sm:px-8 sm:py-16">
       <a
         href="/"
         aria-label={`返回 ${config.siteName} 首页`}
@@ -36,7 +37,11 @@ export default function Post({ post }: PostProps) {
 
       <article class="mt-14">
         <header class="mb-7 border-b border-neutral-200 pb-6 dark:border-neutral-800">
-          <h1 class="m-0 font-serif text-[2.375rem] font-medium leading-[1.1] tracking-[-0.01em] text-balance">
+          <h1
+            id="post-title"
+            data-scroll-heading
+            class="m-0 scroll-mt-8 font-serif text-[2.375rem] font-medium leading-[1.1] tracking-[-0.01em] text-balance"
+          >
             {title}
           </h1>
           <time
@@ -47,10 +52,16 @@ export default function Post({ post }: PostProps) {
           </time>
         </header>
         <div
-          class="content"
+          id="post-content"
+          class="content post-content"
           dangerouslySetInnerHTML={{ __html: post.html }}
         />
       </article>
+      <Island
+        name="article-scroll-nav"
+        component={ArticleScrollNav}
+        props={{ title }}
+      />
     </main>
   );
 }

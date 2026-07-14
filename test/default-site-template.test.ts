@@ -13,7 +13,7 @@ afterEach(async () => {
 });
 
 describe("default site template", () => {
-  test("void publishes the home page and archive posts without client scripts", async () => {
+  test("void keeps home static and adds article scroll navigation to posts", async () => {
     const process = spawnSite();
     const address = await readServerAddress(process);
 
@@ -39,7 +39,8 @@ describe("default site template", () => {
     expect(postHtml).toContain('class="back-arrow');
     expect(postHtml).toContain("<span>void</span>");
     expect(postHtml).toContain("留白不是没有内容");
-    expect(postHtml).not.toContain("<script");
+    expect(postHtml).toContain('data-diitey-island="article-scroll-nav"');
+    expect(postHtml).toContain("<script");
 
     const stylesheetPath = homeHtml.match(
       /href="(\/assets\/theme\/styles-[a-f0-9]+\.css)"/,
@@ -53,6 +54,8 @@ describe("default site template", () => {
     expect(css).toContain("text-decoration:none");
     expect(css).toContain("border-left-width:2px");
     expect(css).toContain("prefers-reduced-motion:reduce");
+    expect(css).toContain("article-scroll-nav");
+    expect(css).toContain("scrollbar-width:none");
   }, 15_000);
 });
 
