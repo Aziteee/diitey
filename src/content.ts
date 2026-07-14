@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { unified, type Pluggable } from "unified";
 import remarkFrontmatter from "remark-frontmatter";
+import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
@@ -41,6 +42,7 @@ export async function buildContentRecord(
   const rendered = await unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"])
+    .use(remarkGfm)
     .use([...extensions.remarkPlugins])
     .use(remarkRehype, { allowDangerousHtml: true })
     .use([...extensions.rehypePlugins])

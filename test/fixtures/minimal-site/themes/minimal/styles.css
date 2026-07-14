@@ -58,4 +58,20 @@
   main hr {
     @apply my-6 border-neutral-300;
   }
+
+  main table {
+    @apply my-4 w-full border-collapse text-left;
+  }
+
+  main th {
+    @apply border border-neutral-300 px-3 py-2 font-semibold;
+  }
+
+  main td {
+    @apply border border-neutral-300 px-3 py-2;
+  }
+
+  main thead {
+    @apply bg-neutral-50;
+  }
 }
