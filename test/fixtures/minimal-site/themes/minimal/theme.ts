@@ -10,11 +10,13 @@ const minimalThemeConfig = z
   .object({
     siteName: z.string().trim().min(1),
     articlePageSize: z.number().int().positive().max(100),
+    homeIntro: z.string().trim().min(1),
   })
   .strict()
   .default({
     siteName: "Diitey Minimal Site",
     articlePageSize: 2,
+    homeIntro: "Welcome to the Diitey minimal site.",
   });
 
 export type MinimalThemeConfig = z.infer<typeof minimalThemeConfig>;
@@ -45,6 +47,15 @@ export default defineTheme({
         }),
       },
       routes: [
+        route(
+          "/",
+          page("home", {
+            items: {
+              collection: "articles",
+              paginate: config.articlePageSize,
+            },
+          }),
+        ),
         route(
           "/writing/hello",
           page("article", {

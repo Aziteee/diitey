@@ -103,6 +103,15 @@ export interface ContentRecord {
   readonly html: string;
 }
 
+export interface Pagination {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+  readonly prevHref: string | null;
+  readonly nextHref: string | null;
+}
+
 export interface CollectionDefinition {
   readonly from: string;
   readonly schema: Readonly<Record<string, SchemaType>>;

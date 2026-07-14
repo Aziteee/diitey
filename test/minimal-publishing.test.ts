@@ -49,6 +49,9 @@ describe("minimal publishing loop", () => {
     const secondPage = await fetch(`${address}/writing?page=2`).then((response) =>
       response.text(),
     );
+    const thirdPage = await fetch(`${address}/writing?page=3`).then((response) =>
+      response.text(),
+    );
 
     const alphaPosition = firstPage.indexOf("Alpha article");
     const zetaPosition = firstPage.indexOf("Zeta article");
@@ -56,8 +59,24 @@ describe("minimal publishing loop", () => {
     expect(zetaPosition).toBeGreaterThan(alphaPosition);
     expect(firstPage).toContain('href="/writing/2025/alpha"');
     expect(firstPage).toContain('href="/writing/2026/zeta"');
+    expect(firstPage).not.toContain("Beta article");
     expect(firstPage).not.toContain("Draft article");
-    expect(secondPage).toContain("<ol></ol>");
+    expect(firstPage).toContain('href="/writing?page=2"');
+    expect(firstPage).toContain('rel="next"');
+    expect(firstPage).not.toContain('rel="prev"');
+    expect(secondPage).toContain('href="/writing/2026/beta"');
+    expect(secondPage).toContain('href="/writing/2026/gamma"');
+    expect(secondPage).not.toContain("Alpha article");
+    expect(secondPage).toContain('href="/writing"');
+    expect(secondPage).toContain('rel="prev"');
+    expect(secondPage).toContain('href="/writing?page=3"');
+    expect(secondPage).toContain('rel="next"');
+    expect(thirdPage).toContain('href="/writing/2026/delta"');
+    expect(thirdPage).not.toContain("Alpha article");
+    expect(thirdPage).not.toContain("Beta article");
+    expect(thirdPage).toContain('href="/writing?page=2"');
+    expect(thirdPage).toContain('rel="prev"');
+    expect(thirdPage).not.toContain('rel="next"');
   });
 
   test("theme publishes nested content routes and excludes filtered drafts", async () => {
@@ -447,6 +466,93 @@ describe("minimal publishing loop", () => {
 
     expect(exitCode).toBe(1);
     expect(error).toContain("created must be a valid ISO 8601 date or datetime");
+  });
+
+  test("home page shows the configurable intro and every published article", async () => {
+    const siteRoot = await copyFixtureSite();
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+
+    const response = await fetch(`${address}/`);
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain("Welcome to the Diitey minimal site.");
+    expect(html).toContain('href="/writing/2025/alpha"');
+    expect(html).toContain('href="/writing/2026/zeta"');
+    expect(html).not.toContain("Draft article");
+  });
+
+  test("home page intro is configurable from site.config.ts", async () => {
+    const siteRoot = await copyFixtureSite();
+    const configPath = join(siteRoot, "site.config.ts");
+    const source = await readFile(configPath, "utf8");
+    await writeFile(
+      configPath,
+      source.replace(
+        "Welcome to the Diitey minimal site.",
+        "A custom intro for the home page.",
+      ),
+    );
+
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+
+    const html = await fetch(`${address}/`).then((response) => response.text());
+
+    expect(html).toContain("A custom intro for the home page.");
+    expect(html).not.toContain("Welcome to the Diitey minimal site.");
+  });
+
+  test("home page paginates articles across multiple pages", async () => {
+    const siteRoot = await copyFixtureSite();
+    const process = spawnSite(siteRoot);
+    const address = await readServerAddress(process);
+
+    const [first, second, third, beyond, invalid] = await Promise.all([
+      fetch(`${address}/`).then(async (response) => ({
+        status: response.status,
+        html: await response.text(),
+      })),
+      fetch(`${address}/?page=2`).then(async (response) => ({
+        status: response.status,
+        html: await response.text(),
+      })),
+      fetch(`${address}/?page=3`).then(async (response) => ({
+        status: response.status,
+        html: await response.text(),
+      })),
+      fetch(`${address}/?page=9`).then(async (response) => ({
+        status: response.status,
+        html: await response.text(),
+      })),
+      fetch(`${address}/?page=zero`).then(async (response) => ({
+        status: response.status,
+        html: await response.text(),
+      })),
+    ]);
+
+    expect(first.status).toBe(200);
+    expect(first.html).toContain("Welcome to the Diitey minimal site.");
+    expect(first.html).toContain('href="/writing/2025/alpha"');
+    expect(first.html).toContain('href="/writing/2026/zeta"');
+    expect(first.html).not.toContain("Beta article");
+
+    expect(second.status).toBe(200);
+    expect(second.html).toContain("Welcome to the Diitey minimal site.");
+    expect(second.html).toContain('href="/writing/2026/beta"');
+    expect(second.html).toContain('href="/writing/2026/gamma"');
+    expect(second.html).not.toContain("Alpha article");
+
+    expect(third.status).toBe(200);
+    expect(third.html).toContain('href="/writing/2026/delta"');
+    expect(third.html).not.toContain("Alpha article");
+    expect(third.html).not.toContain("Beta article");
+
+    expect(beyond.status).toBe(200);
+    expect(beyond.html).toContain("<ol></ol>");
+
+    expect(invalid.status).toBe(400);
   });
 });
 

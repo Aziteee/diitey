@@ -4,6 +4,7 @@ import type {
   ContentRecord,
   ItemBinding,
   ListBinding,
+  Pagination,
   ServiceBinding,
 } from "../index.ts";
 import { renderPageWithIslands, type BuiltIslands } from "../islands.ts";
@@ -36,7 +37,6 @@ export interface PublishedRouteEntry {
     readonly bindingName: string;
     readonly items: readonly ContentRecord[];
     readonly bodies?: readonly string[];
-    readonly emptyBody?: string;
   };
 }
 
@@ -232,32 +232,40 @@ export function compilePagePlan(options: {
             }),
           ]);
         }
-        const renderItemsPage = (items: readonly ContentRecord[]) =>
+        const renderItemsPage = (
+          items: readonly ContentRecord[],
+          pageNumber: number,
+        ) =>
           renderThemePage({
             ...publishData,
             [paginatedBinding.name]: items,
-          });
-        const bodies = Array.from(
-          { length: Math.ceil(selected.length / pageSize) },
-          (_, index) =>
-            renderItemsPage(
-              selected.slice(index * pageSize, (index + 1) * pageSize),
+            pagination: buildPagination(
+              path,
+              pageNumber,
+              pageSize,
+              selected.length,
             ),
+          });
+        const totalPages = Math.ceil(selected.length / pageSize);
+        const bodies = Array.from({ length: totalPages }, (_, index) =>
+          renderItemsPage(
+            selected.slice(index * pageSize, (index + 1) * pageSize),
+            index + 1,
+          ),
         );
-        const emptyBody = renderItemsPage([]);
         return Object.freeze([
           Object.freeze({
             path,
             title: "Diitey",
             planId: options.id,
             publishData: Object.freeze(publishData),
-            body: bodies[0] ?? emptyBody,
+            body: bodies[0] ??
+              renderItemsPage([], 1),
             pagination: Object.freeze({
               pageSize,
               bindingName: paginatedBinding.name,
               items: Object.freeze(selected),
               bodies: Object.freeze(bodies),
-              emptyBody,
             }),
           }),
         ]);
@@ -303,9 +311,22 @@ export function compilePagePlan(options: {
           throw new PageRequestError("Invalid page", 400);
         }
         if (entry.pagination.bodies) {
-          return (
-            entry.pagination.bodies[pageNumber - 1] ??
-            entry.pagination.emptyBody!
+          const body = entry.pagination.bodies[pageNumber - 1];
+          if (body !== undefined) {
+            return body;
+          }
+          return renderThemePage(
+            {
+              ...entry.publishData,
+              [entry.pagination.bindingName]: [],
+              pagination: buildPagination(
+                entry.path,
+                pageNumber,
+                entry.pagination.pageSize,
+                entry.pagination.items.length,
+              ),
+            },
+            runtime.islands,
           );
         }
         const start = (pageNumber - 1) * entry.pagination.pageSize;
@@ -319,6 +340,12 @@ export function compilePagePlan(options: {
         data = {
           ...data,
           [entry.pagination.bindingName]: pageItems,
+          pagination: buildPagination(
+            entry.path,
+            pageNumber,
+            entry.pagination.pageSize,
+            entry.pagination.items.length,
+          ),
         };
       } else if (entry.body !== undefined && !hasServices) {
         return entry.body;
@@ -345,6 +372,27 @@ export class PageRequestError extends Error {
   ) {
     super(message);
   }
+}
+
+function buildPagination(
+  path: string,
+  page: number,
+  pageSize: number,
+  totalItems: number,
+): Pagination {
+  const totalPages = Math.ceil(totalItems / pageSize);
+  return Object.freeze({
+    page,
+    pageSize,
+    totalItems,
+    totalPages,
+    prevHref: page > 1 ? pageHref(path, page - 1) : null,
+    nextHref: page < totalPages ? pageHref(path, page + 1) : null,
+  });
+}
+
+function pageHref(path: string, page: number): string {
+  return page <= 1 ? path : `${path}?page=${page}`;
 }
 
 function compileServicePlan(

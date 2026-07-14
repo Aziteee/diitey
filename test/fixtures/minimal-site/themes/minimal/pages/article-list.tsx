@@ -1,11 +1,12 @@
-import { type ContentRecord, useThemeConfig } from "diitey";
+import { type ContentRecord, type Pagination, useThemeConfig } from "diitey";
 import type { MinimalThemeConfig } from "../theme.ts";
 
 interface ArticleListProps {
-  items: readonly ContentRecord[];
+  readonly items: readonly ContentRecord[];
+  readonly pagination: Pagination;
 }
 
-export default function ArticleList({ items }: ArticleListProps) {
+export default function ArticleList({ items, pagination }: ArticleListProps) {
   const config = useThemeConfig<MinimalThemeConfig>();
 
   return (
@@ -19,6 +20,18 @@ export default function ArticleList({ items }: ArticleListProps) {
           </li>
         ))}
       </ol>
+      <nav data-pagination>
+        {pagination.prevHref ? (
+          <a href={pagination.prevHref} rel="prev">
+            Previous
+          </a>
+        ) : null}
+        {pagination.nextHref ? (
+          <a href={pagination.nextHref} rel="next">
+            Next
+          </a>
+        ) : null}
+      </nav>
     </main>
   );
 }

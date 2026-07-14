@@ -6,6 +6,7 @@ export default defineSite({
     config: {
       siteName: "Diitey Minimal Site",
       articlePageSize: 2,
+      homeIntro: "Welcome to the Diitey minimal site.",
     },
   },
   plugins: [
