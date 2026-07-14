@@ -193,7 +193,7 @@ describe("Page Plan stages", () => {
       pathPattern: "/",
       stages,
       snapshot: snapshot(items),
-      renderThemePage: (data) => {
+      renderThemePage: (data, _title) => {
         const pageItems = data.posts as ContentRecord[];
         return pageItems.map((entry) => entry.attributes.title).join(",");
       },

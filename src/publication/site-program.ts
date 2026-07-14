@@ -6,6 +6,7 @@ import { loadSiteExtensions } from "../extensions.ts";
 import {
   buildThemeIslands,
   type BuiltIslands,
+  type ThemeDocumentComponent,
 } from "../islands.ts";
 import type {
   CollectionDefinition,
@@ -30,6 +31,7 @@ export interface SiteProgram {
   readonly itemRoutes: readonly ItemRouteSpec[];
   readonly pagePlans: readonly CompiledPagePlan[];
   readonly islands: BuiltIslands;
+  readonly usesDocument: boolean;
   readonly markdown: {
     readonly remarkPlugins: readonly Pluggable[];
     readonly rehypePlugins: readonly Pluggable[];
@@ -70,6 +72,13 @@ export async function compileSiteProgram(
     }
   }
 
+  const Document = theme.document
+    ? await importDefault<ThemeDocumentComponent>(
+        resolve(themePath, "..", "pages", `${theme.document}.tsx`),
+        `theme document ${theme.document}`,
+      )
+    : undefined;
+
   const pagePlans = await Promise.all(
     theme.routes.map(async (definition, index) => {
       const pagePath = resolve(
@@ -87,6 +96,7 @@ export async function compileSiteProgram(
         pathPattern: definition.path,
         pageName: definition.page.name,
         Page,
+        Document,
         data: definition.page.data,
         pluginRuntime,
         islands,
@@ -122,6 +132,7 @@ export async function compileSiteProgram(
     itemRoutes: Object.freeze(itemRoutes),
     pagePlans: Object.freeze(pagePlans),
     islands,
+    usesDocument: Document !== undefined,
     markdown: Object.freeze({
       remarkPlugins: Object.freeze(
         plugins.flatMap((plugin) => plugin.markdown?.remarkPlugins ?? []),

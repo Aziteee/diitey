@@ -7,7 +7,11 @@ import type {
   Pagination,
   ServiceBinding,
 } from "../index.ts";
-import { renderPageWithIslands, type BuiltIslands } from "../islands.ts";
+import {
+  renderPageWithIslands,
+  type BuiltIslands,
+  type ThemeDocumentComponent,
+} from "../islands.ts";
 import { runWithTimeout } from "../plugin-invoke.ts";
 import {
   callPluginService,
@@ -177,6 +181,7 @@ export function publishPageEntries(options: {
   }[];
   readonly renderThemePage?: (
     data: Record<string, unknown>,
+    title: string,
   ) => string;
 }): readonly PublishedRouteEntry[] {
   const {
@@ -217,7 +222,7 @@ export function publishPageEntries(options: {
             title,
             planId,
             publishData: Object.freeze(publishData),
-            body: renderThemePage(publishData),
+            body: renderThemePage(publishData, title),
           }),
         );
       }
@@ -260,11 +265,19 @@ export function publishPageEntries(options: {
       items: readonly ContentRecord[],
       pageNumber: number,
     ) =>
-      renderThemePage({
-        ...publishData,
-        [paginatedBinding.name]: items,
-        pagination: buildPagination(path, pageNumber, pageSize, selected.length),
-      });
+      renderThemePage(
+        {
+          ...publishData,
+          [paginatedBinding.name]: items,
+          pagination: buildPagination(
+            path,
+            pageNumber,
+            pageSize,
+            selected.length,
+          ),
+        },
+        "Diitey",
+      );
     const totalPages = Math.ceil(selected.length / pageSize);
     const bodies = Array.from({ length: totalPages }, (_, index) =>
       renderItemsPage(
@@ -306,7 +319,7 @@ export function publishPageEntries(options: {
       title: "Diitey",
       planId,
       publishData: Object.freeze(publishData),
-      body: renderThemePage(publishData),
+      body: renderThemePage(publishData, "Diitey"),
     }),
   ]);
 }
@@ -316,6 +329,7 @@ export function compilePagePlan(options: {
   readonly pathPattern: string;
   readonly pageName: string;
   readonly Page: ComponentType<Record<string, unknown>>;
+  readonly Document?: ThemeDocumentComponent;
   readonly data: Readonly<
     Record<string, ItemBinding | ListBinding | ServiceBinding>
   >;
@@ -334,9 +348,13 @@ export function compilePagePlan(options: {
   const { hasServices, servicePlans } = stages;
   const renderThemePage = (
     data: Record<string, unknown>,
+    title: string,
     requestIslands: BuiltIslands = islands,
   ): string =>
-    renderPageWithIslands(options.Page, data, requestIslands, themeConfig);
+    renderPageWithIslands(options.Page, data, requestIslands, themeConfig, {
+      Document: options.Document,
+      title,
+    });
 
   return Object.freeze({
     id: options.id,
@@ -355,7 +373,7 @@ export function compilePagePlan(options: {
         stages,
         snapshot,
         resolvedItems,
-        renderThemePage: (data) => renderThemePage(data),
+        renderThemePage: (data, title) => renderThemePage(data, title),
       });
     },
     async render(
@@ -392,6 +410,7 @@ export function compilePagePlan(options: {
                 entry.pagination.items.length,
               ),
             },
+            entry.title,
             runtime.islands,
           );
         }
@@ -422,7 +441,7 @@ export function compilePagePlan(options: {
         data = { ...data, ...serviceData };
       }
 
-      return renderThemePage(data, runtime.islands);
+      return renderThemePage(data, entry.title, runtime.islands);
     },
   });
 }

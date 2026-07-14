@@ -113,6 +113,7 @@ const themeDefinitionSchema = z
         })
         .strict(),
     ),
+    document: z.string().min(1).optional(),
   })
   .strict();
 

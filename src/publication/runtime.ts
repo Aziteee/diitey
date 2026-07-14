@@ -158,7 +158,9 @@ export async function openPublication(options: {
           islands: program.islands,
           contentIds: requestPublication.contentIds,
         });
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(entry.title)}</title></head><body>${body}</body></html>`;
+        const html = program.usesDocument
+          ? `<!doctype html>${body}`
+          : `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(entry.title)}</title></head><body>${body}</body></html>`;
         const headers: Record<string, string> = {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "no-store",

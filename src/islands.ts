@@ -4,11 +4,17 @@ import {
   Fragment,
   createContext,
   h,
+  type ComponentChildren,
   type ComponentType,
   type VNode,
 } from "preact";
 import { useContext } from "preact/hooks";
 import renderToString from "preact-render-to-string";
+
+export type ThemeDocumentComponent = ComponentType<{
+  title: string;
+  children?: ComponentChildren;
+}>;
 
 export interface IslandAsset {
   readonly path: string;
@@ -110,12 +116,20 @@ export function renderPageWithIslands(
   data: Record<string, unknown>,
   islands: BuiltIslands,
   themeConfig: unknown,
+  options: {
+    readonly Document?: ThemeDocumentComponent;
+    readonly title?: string;
+  } = {},
 ): string {
+  const page = h(Page, data);
+  const tree = options.Document
+    ? h(options.Document, { title: options.title ?? "Diitey" }, page)
+    : page;
   return renderToString(
     h(
       ThemeConfigContext.Provider,
       { value: themeConfig },
-      h(IslandBuildContext.Provider, { value: islands }, h(Page, data)),
+      h(IslandBuildContext.Provider, { value: islands }, tree),
     ),
   );
 }

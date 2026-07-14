@@ -156,6 +156,7 @@ export interface RouteDefinition {
 export interface ThemeDefinition {
   readonly collections: Readonly<Record<string, CollectionDefinition>>;
   readonly routes: readonly RouteDefinition[];
+  readonly document?: string;
 }
 
 export function defineSite(definition: SiteDefinition): SiteDefinition {

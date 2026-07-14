@@ -75,6 +75,7 @@ function makeProgram(options: {
     itemRoutes: Object.freeze(options.itemRoutes ?? []),
     pagePlans: Object.freeze(options.pagePlans),
     islands: emptyIslands(),
+    usesDocument: false,
     markdown: Object.freeze({ remarkPlugins: [], rehypePlugins: [] }),
     plugins: Object.freeze({
       services: Object.freeze({}),
