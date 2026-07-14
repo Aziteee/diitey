@@ -25,6 +25,7 @@ export default defineTheme({
   config: minimalThemeConfig,
   setup(config) {
     return {
+      document: "document",
       collections: {
         writing: collection({
           from: "hello.md",

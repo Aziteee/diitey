@@ -22,6 +22,13 @@ afterEach(async () => {
 describe("theme document layout", () => {
   test("theme without document keeps the core fallback shell", async () => {
     const siteRoot = await copyFixtureSite();
+    const themeSource = await Bun.file(
+      join(siteRoot, "themes", "minimal", "theme.ts"),
+    ).text();
+    await writeFile(
+      join(siteRoot, "themes", "minimal", "theme.ts"),
+      themeSource.replace(/\s*document:\s*"document",\s*/, "\n      "),
+    );
     const process = spawnSite(siteRoot);
     const address = await readServerAddress(process);
 
@@ -114,16 +121,9 @@ describe("theme document layout", () => {
 
   test("declared but missing document module fails site startup", async () => {
     const siteRoot = await copyFixtureSite();
-    const themeSource = await Bun.file(
-      join(siteRoot, "themes", "minimal", "theme.ts"),
-    ).text();
-    await writeFile(
-      join(siteRoot, "themes", "minimal", "theme.ts"),
-      themeSource.replace(
-        "return {\n      collections: {",
-        'return {\n      document: "document",\n      collections: {',
-      ),
-    );
+    await rm(join(siteRoot, "themes", "minimal", "pages", "document.tsx"), {
+      force: true,
+    });
 
     const error = await readStartupError(spawnSite(siteRoot));
     expect(error).toMatch(/document|ENOENT|Cannot find|Unable to resolve/i);
@@ -185,16 +185,6 @@ async function writeDocumentFixture(siteRoot: string): Promise<void> {
     `,
   );
 
-  const themeSource = await Bun.file(
-    join(siteRoot, "themes", "minimal", "theme.ts"),
-  ).text();
-  await writeFile(
-    join(siteRoot, "themes", "minimal", "theme.ts"),
-    themeSource.replace(
-      "return {\n      collections: {",
-      'return {\n      document: "document",\n      collections: {',
-    ),
-  );
 }
 
 async function copyFixtureSite(): Promise<string> {
