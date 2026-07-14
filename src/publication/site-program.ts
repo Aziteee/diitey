@@ -14,6 +14,10 @@ import type {
 } from "../index.ts";
 import { buildPluginRuntime, type PluginRuntime } from "../plugins.ts";
 import {
+  buildThemeStyles,
+  type BuiltThemeStyles,
+} from "../styles.ts";
+import {
   compileCollectionMatchers,
   type ItemRouteSpec,
   validateRoutePatterns,
@@ -31,6 +35,7 @@ export interface SiteProgram {
   readonly itemRoutes: readonly ItemRouteSpec[];
   readonly pagePlans: readonly CompiledPagePlan[];
   readonly islands: BuiltIslands;
+  readonly styles: BuiltThemeStyles;
   readonly usesDocument: boolean;
   readonly markdown: {
     readonly remarkPlugins: readonly Pluggable[];
@@ -48,6 +53,7 @@ export async function compileSiteProgram(
   programRevision: string = crypto.randomUUID(),
   options: {
     readonly islands?: BuiltIslands;
+    readonly styles?: BuiltThemeStyles;
   } = {},
 ): Promise<SiteProgram> {
   const extensions = await loadSiteExtensions(root);
@@ -57,6 +63,9 @@ export async function compileSiteProgram(
   const collectionMatchers = compileCollectionMatchers(theme.collections);
   const islands =
     options.islands ?? (await buildThemeIslands(themePath));
+  const styles =
+    options.styles ??
+    (await buildThemeStyles(themePath, theme.styles));
   const plugins = extensions.plugins.map((plugin) => plugin.definition);
   const pluginRuntime = buildPluginRuntime(plugins);
   if (theme.routes.length === 0) {
@@ -100,6 +109,7 @@ export async function compileSiteProgram(
         data: definition.page.data,
         pluginRuntime,
         islands,
+        styles,
         themeConfig: extensions.theme.config,
       });
     }),
@@ -132,6 +142,7 @@ export async function compileSiteProgram(
     itemRoutes: Object.freeze(itemRoutes),
     pagePlans: Object.freeze(pagePlans),
     islands,
+    styles,
     usesDocument: Document !== undefined,
     markdown: Object.freeze({
       remarkPlugins: Object.freeze(

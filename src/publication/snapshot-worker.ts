@@ -1,4 +1,5 @@
 import type { BuiltIslands } from "../islands.ts";
+import type { BuiltThemeStyles } from "../styles.ts";
 import { buildContentSnapshot } from "./content-snapshot.ts";
 import { buildPublicationCandidate } from "./effective-publication.ts";
 import { compileSiteProgram, type SiteProgram } from "./site-program.ts";
@@ -9,6 +10,7 @@ type WorkerRequest =
       root: string;
       programRevision: string;
       islands: BuiltIslands;
+      styles: BuiltThemeStyles;
     }
   | { type: "build"; buildId: string };
 
@@ -20,7 +22,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       program = await compileSiteProgram(
         event.data.root,
         event.data.programRevision,
-        { islands: event.data.islands },
+        {
+          islands: event.data.islands,
+          styles: event.data.styles,
+        },
       );
       postMessage({
         type: "ready",

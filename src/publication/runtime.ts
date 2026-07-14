@@ -78,6 +78,7 @@ export async function openPublication(options: {
     options.root,
     program.programRevision,
     program.islands,
+    program.styles,
   );
   const pluginDatabase = await preparePluginDatabase(
     options.root,
@@ -139,6 +140,18 @@ export async function openPublication(options: {
         });
       }
 
+      const themeAssetBody = requestPublication.themeAssetsByPath.get(
+        url.pathname,
+      );
+      if (themeAssetBody !== undefined) {
+        return new Response(themeAssetBody, {
+          headers: {
+            "content-type": "text/css; charset=utf-8",
+            "cache-control": "public, max-age=31536000, immutable",
+          },
+        });
+      }
+
       const path = normalizePath(url.pathname);
       const entry = requestPublication.routesByPath.get(path);
       if (!entry) {
@@ -156,6 +169,7 @@ export async function openPublication(options: {
           pluginRuntime: program.plugins,
           pluginDatabase,
           islands: program.islands,
+          styles: program.styles,
           contentIds: requestPublication.contentIds,
         });
         const html = program.usesDocument

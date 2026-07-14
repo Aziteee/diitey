@@ -16,6 +16,7 @@ export interface EffectivePublication {
   readonly plansById: ReadonlyMap<string, CompiledPagePlan>;
   readonly islandAssetsByPath: ReadonlyMap<string, string>;
   readonly islandManifest: Readonly<Record<string, string>>;
+  readonly themeAssetsByPath: ReadonlyMap<string, string>;
 }
 
 export interface PublicationCandidate {
@@ -66,6 +67,9 @@ export function materializePublication(
   const islandAssetsByPath = new Map(
     program.islands.assets.map((asset) => [asset.path, asset.body] as const),
   );
+  const themeAssetsByPath = new Map(
+    program.styles.assets.map((asset) => [asset.path, asset.body] as const),
+  );
 
   return Object.freeze({
     version: candidate.version,
@@ -79,6 +83,7 @@ export function materializePublication(
     plansById,
     islandAssetsByPath: Object.freeze(islandAssetsByPath),
     islandManifest: program.islands.manifest,
+    themeAssetsByPath: Object.freeze(themeAssetsByPath),
   });
 }
 

@@ -27,6 +27,7 @@ describe("snapshot worker publish-capable payload", () => {
       siteRoot,
       program.programRevision,
       program.islands,
+      program.styles,
     );
     workers.push(worker);
 

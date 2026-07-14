@@ -17,6 +17,7 @@ import type { ContentSnapshot } from "../src/publication/content-snapshot.ts";
 import type { ResolvedItemRoute } from "../src/publication/publish-routes.ts";
 import type { SiteProgram } from "../src/publication/site-program.ts";
 import { compileCollectionMatchers } from "../src/publication/route-pattern.ts";
+import { emptyThemeStyles } from "../src/styles.ts";
 
 function record(
   partial: Partial<ContentRecord> &
@@ -75,6 +76,7 @@ function makeProgram(options: {
     itemRoutes: Object.freeze(options.itemRoutes ?? []),
     pagePlans: Object.freeze(options.pagePlans),
     islands: emptyIslands(),
+    styles: emptyThemeStyles,
     usesDocument: false,
     markdown: Object.freeze({ remarkPlugins: [], rehypePlugins: [] }),
     plugins: Object.freeze({

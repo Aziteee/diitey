@@ -10,6 +10,7 @@ import {
 } from "preact";
 import { useContext } from "preact/hooks";
 import renderToString from "preact-render-to-string";
+import { ThemeStylesheetContext } from "./styles.ts";
 
 export type ThemeDocumentComponent = ComponentType<{
   title: string;
@@ -119,6 +120,7 @@ export function renderPageWithIslands(
   options: {
     readonly Document?: ThemeDocumentComponent;
     readonly title?: string;
+    readonly stylesheetPath?: string | null;
   } = {},
 ): string {
   const page = h(Page, data);
@@ -129,7 +131,11 @@ export function renderPageWithIslands(
     h(
       ThemeConfigContext.Provider,
       { value: themeConfig },
-      h(IslandBuildContext.Provider, { value: islands }, tree),
+      h(
+        ThemeStylesheetContext.Provider,
+        { value: options.stylesheetPath ?? null },
+        h(IslandBuildContext.Provider, { value: islands }, tree),
+      ),
     ),
   );
 }

@@ -1,4 +1,5 @@
 import type { BuiltIslands } from "../islands.ts";
+import type { BuiltThemeStyles } from "../styles.ts";
 import type { PublicationCandidate } from "./effective-publication.ts";
 
 type WorkerResult =
@@ -20,6 +21,7 @@ export class SnapshotWorker {
     private readonly root: string,
     private readonly programRevision: string,
     private readonly islands: BuiltIslands,
+    private readonly styles: BuiltThemeStyles,
   ) {
     this.ready = this.spawn();
   }
@@ -28,8 +30,14 @@ export class SnapshotWorker {
     root: string,
     programRevision: string,
     islands: BuiltIslands,
+    styles: BuiltThemeStyles,
   ): Promise<SnapshotWorker> {
-    const builder = new SnapshotWorker(root, programRevision, islands);
+    const builder = new SnapshotWorker(
+      root,
+      programRevision,
+      islands,
+      styles,
+    );
     await builder.ready;
     return builder;
   }
@@ -135,6 +143,7 @@ export class SnapshotWorker {
         root: this.root,
         programRevision: this.programRevision,
         islands: this.islands,
+        styles: this.styles,
       });
     });
   }

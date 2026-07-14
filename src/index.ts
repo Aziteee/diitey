@@ -1,6 +1,7 @@
 import type { Pluggable } from "unified";
 import type { Database } from "bun:sqlite";
 export { Island, useThemeConfig } from "./islands.ts";
+export { useThemeStylesheet } from "./styles.ts";
 export { PluginNotFoundError } from "./plugins.ts";
 
 export type SchemaType =
@@ -157,6 +158,7 @@ export interface ThemeDefinition {
   readonly collections: Readonly<Record<string, CollectionDefinition>>;
   readonly routes: readonly RouteDefinition[];
   readonly document?: string;
+  readonly styles?: string;
 }
 
 export function defineSite(definition: SiteDefinition): SiteDefinition {

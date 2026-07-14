@@ -27,7 +27,7 @@ bun index.ts status --root test/fixtures/minimal-site
 
 `start` 会在站点的 `data/diitey.runtime.json` 写入仅当前用户可读的管理连接信息，并在正常退出时删除。管理监听器仅绑定 loopback。
 
-`reload` 只重建内容快照，并在成功后原子替换有效发布视图（路由、静态页面、请求期页面计划与 island 资源）；校验失败或超时则保留原有效发布视图。主题、插件、`site.config.ts` 与 islands 在启动时固定为站点程序，其变更需要重启站点才能生效；内容 `reload` 不会重新构建 islands，也不会执行插件迁移。扩展构建进程超时后，站点继续服务当前有效发布视图，但后续 `reload` 会要求重启站点。
+`reload` 只重建内容快照，并在成功后原子替换有效发布视图（路由、静态页面、请求期页面计划、island 资源与主题样式表）；校验失败或超时则保留原有效发布视图。主题、插件、`site.config.ts`、islands 与主题 CSS 在启动时固定为站点程序，其变更需要重启站点才能生效；内容 `reload` 不会重新构建 islands 或主题样式表，也不会执行插件迁移。扩展构建进程超时后，站点继续服务当前有效发布视图，但后续 `reload` 会要求重启站点。
 
 主题可用 picomatch glob 声明集合，通过 `where`、`orderBy`、`limit` 和 `paginate` 查询内容，并用源路径参数生成内容路由。集合 glob 支持 `*`、`**`、`?`、字符集合和 brace patterns（例如 `articles/**/*.{md,mdx}`）；内容源路径和主题中的 Windows 路径分隔符都会统一为 `/`，无效 glob 会在启动时失败。集合排序会自动追加内容 ID 升序作为最终排序键；分页读取正整数 `page` 查询参数。内容记录的 `url` 始终指向其 canonical 路由。
 
@@ -115,6 +115,15 @@ export default definePlugin({
 可配置主题使用相同的 `config` 与 `setup` 接口。主题页面可以在 SSR 期间调用
 `useThemeConfig<Config>()` 读取解析后的配置，再把浏览器确实需要的值显式作为
 island props 传递；核心不会自动向浏览器公开整份主题配置。
+
+主题可声明可选的 `styles`（例如 `"styles"` 对应主题入口旁的 `styles.css`）。
+核心在启动时用 `Bun.build` 构建该入口，产出哈希路径
+`/assets/theme/styles-{hash}.css`，并在 SSR 中通过 `useThemeStylesheet()`
+提供 URL；主题 document 自行写入 `<link rel="stylesheet" href={...} />`。
+核心不依赖 Tailwind：主题若要用按需 utility CSS，在站点/主题包中安装
+`tailwindcss`，在 CSS 入口写 `@import "tailwindcss"`，并用 `@source` 覆盖
+`pages/**` 与 `islands/**`。未声明 `styles` 时行为不变；CSS 变更需重启站点，
+不会由内容 `reload` 重建。
 
 扩展配置属于站点程序，修改后需要重启，不会由内容 `reload` 重新读取。较大的配置
 可以放在站点根目录的 `config/` 中，再由 `site.config.ts` 显式导入；`data/` 保留给

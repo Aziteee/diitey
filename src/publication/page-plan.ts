@@ -17,6 +17,10 @@ import {
   callPluginService,
   type PluginRuntime,
 } from "../plugins.ts";
+import {
+  emptyThemeStyles,
+  type BuiltThemeStyles,
+} from "../styles.ts";
 import type { ContentSnapshot } from "./content-snapshot.ts";
 import { normalizeRoutePath } from "./route-pattern.ts";
 
@@ -24,6 +28,7 @@ export interface RequestRuntime {
   readonly pluginRuntime: PluginRuntime;
   readonly pluginDatabase: Database;
   readonly islands: BuiltIslands;
+  readonly styles: BuiltThemeStyles;
   readonly contentIds: ReadonlySet<string>;
 }
 
@@ -335,9 +340,11 @@ export function compilePagePlan(options: {
   >;
   readonly pluginRuntime: PluginRuntime;
   readonly islands?: BuiltIslands;
+  readonly styles?: BuiltThemeStyles;
   readonly themeConfig?: unknown;
 }): CompiledPagePlan {
   const islands = options.islands ?? emptyIslands;
+  const styles = options.styles ?? emptyThemeStyles;
   const themeConfig = options.themeConfig;
   const stages = compilePageBindings({
     pathPattern: options.pathPattern,
@@ -350,10 +357,12 @@ export function compilePagePlan(options: {
     data: Record<string, unknown>,
     title: string,
     requestIslands: BuiltIslands = islands,
+    requestStyles: BuiltThemeStyles = styles,
   ): string =>
     renderPageWithIslands(options.Page, data, requestIslands, themeConfig, {
       Document: options.Document,
       title,
+      stylesheetPath: requestStyles.stylesheetPath,
     });
 
   return Object.freeze({
@@ -412,6 +421,7 @@ export function compilePagePlan(options: {
             },
             entry.title,
             runtime.islands,
+            runtime.styles,
           );
         }
         const start = (pageNumber - 1) * entry.pagination.pageSize;
@@ -441,7 +451,7 @@ export function compilePagePlan(options: {
         data = { ...data, ...serviceData };
       }
 
-      return renderThemePage(data, entry.title, runtime.islands);
+      return renderThemePage(data, entry.title, runtime.islands, runtime.styles);
     },
   });
 }
