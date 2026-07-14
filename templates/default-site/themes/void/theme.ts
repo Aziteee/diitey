@@ -34,11 +34,21 @@ export default defineTheme({
             draft: "boolean?",
           },
         }),
+        home: collection({
+          from: "home.md",
+          schema: {
+            title: "string",
+          },
+        }),
       },
       routes: [
         route(
           "/",
           page("home", {
+            home: {
+              collection: "home",
+              limit: 1,
+            },
             posts: {
               collection: "posts",
               paginate: config.postsPerPage,

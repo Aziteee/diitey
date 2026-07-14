@@ -40,7 +40,7 @@ export default function Post({ post }: PostProps) {
           <h1
             id="post-title"
             data-scroll-heading
-            class="m-0 scroll-mt-8 font-serif text-[2.375rem] font-medium leading-[1.1] tracking-[-0.01em] text-balance"
+            class="m-0 scroll-mt-8 font-serif text-[2.375rem] font-medium leading-[1.1] tracking-[-0.01em] text-balance text-[color:var(--heading)]"
           >
             {title}
           </h1>

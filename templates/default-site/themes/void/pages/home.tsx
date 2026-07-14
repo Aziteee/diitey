@@ -1,34 +1,29 @@
 import {
   type ContentRecord,
   type Pagination,
-  useThemeConfig,
 } from "diitey";
-import type { VoidThemeConfig } from "../theme.ts";
 import { formatDate } from "../shared/date.ts";
 
 interface HomeProps {
+  readonly home: readonly ContentRecord[];
   readonly posts: readonly ContentRecord[];
   readonly pagination: Pagination;
 }
 
-export default function Home({ posts, pagination }: HomeProps) {
-  const config = useThemeConfig<VoidThemeConfig>();
+export default function Home({ home, posts, pagination }: HomeProps) {
+  const homeRecord = home[0];
 
   return (
     <main class="mx-auto w-full max-w-[45rem] px-6 py-16 font-serif sm:px-8 sm:py-24">
-      <header class="mb-20 sm:mb-28">
-        <h1 class="m-0 text-5xl font-medium tracking-[-0.045em] sm:text-6xl">
-          {config.siteName}
-        </h1>
-        <p class="mt-5 max-w-md text-base leading-7 text-neutral-600 dark:text-neutral-400">
-          {config.siteDescription}
-        </p>
-      </header>
+      <div
+        class="content home-content mb-20 sm:mb-28"
+        dangerouslySetInnerHTML={{ __html: homeRecord?.html ?? "" }}
+      />
 
       <section aria-labelledby="writing-heading">
         <h2
           id="writing-heading"
-          class="mb-8 text-xl font-medium tracking-[-0.02em] text-neutral-900 dark:text-neutral-100"
+          class="mb-3 text-xl font-medium tracking-[-0.02em] text-neutral-900 dark:text-neutral-100"
         >
           Writing
         </h2>
