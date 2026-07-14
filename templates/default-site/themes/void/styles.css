@@ -296,6 +296,11 @@
     position: absolute;
     inset: 0;
     background: linear-gradient(90deg, transparent 0%, var(--paper) 70%);
+    opacity: 0;
+    transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .article-scroll-nav:hover .article-scroll-nav__fade {
     opacity: 0.82;
   }
 
@@ -317,11 +322,11 @@
     cursor: default;
     font: 400 0.75rem/1.25 Inter, ui-sans-serif, system-ui, sans-serif;
     letter-spacing: -0.01em;
-    opacity: 0.8;
+    opacity: 0;
     pointer-events: none;
     text-align: right;
     text-overflow: ellipsis;
-    transform: translateY(-50%);
+    transform: translate(0.25rem, -50%);
     transition:
       color 200ms ease,
       opacity 220ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -331,14 +336,16 @@
 
   .article-scroll-nav__label.is-reached {
     color: var(--ink);
-    opacity: 1;
   }
 
-  .article-scroll-nav.is-scrolling .article-scroll-nav__label,
-  .article-scroll-nav.is-dragging .article-scroll-nav__label,
-  .article-scroll-nav:hover .article-scroll-nav__label,
-  .article-scroll-nav:focus-within .article-scroll-nav__label {
+  .article-scroll-nav:hover .article-scroll-nav__label {
+    opacity: 0.8;
     pointer-events: auto;
+    transform: translateY(-50%);
+  }
+
+  .article-scroll-nav:hover .article-scroll-nav__label.is-reached {
+    opacity: 1;
   }
 
   .article-scroll-nav__label:hover,
@@ -362,6 +369,11 @@
   .article-scroll-nav__segment {
     position: absolute;
     right: 0.75rem;
+    width: 0.130rem;
+    transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .article-scroll-nav:hover .article-scroll-nav__segment {
     width: 0.1875rem;
   }
 
@@ -380,10 +392,9 @@
   }
 
   .article-scroll-nav__segment-fill {
-    bottom: auto;
-    min-height: 0;
     background: var(--ink);
-    transition: height 90ms linear;
+    transform-origin: top;
+    transition: transform 90ms linear;
   }
 
   @media (min-width: 80rem) {

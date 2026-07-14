@@ -276,7 +276,7 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
               <span class="article-scroll-nav__segment-base" />
               <span
                 class="article-scroll-nav__segment-fill"
-                style={{ height: `${fill * 100}%` }}
+                style={{ transform: `scaleY(${fill})` }}
               />
             </span>
           );
