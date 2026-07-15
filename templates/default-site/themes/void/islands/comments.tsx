@@ -107,11 +107,6 @@ export default function Comments({ contentId, comments }: CommentsProps) {
         >
           Comments
         </h2>
-        <p class="m-0 font-sans text-xs tracking-[0.04em] tabular-nums text-neutral-500 dark:text-neutral-500">
-          {total === 0
-            ? "No comments yet"
-            : `${total} ${total === 1 ? "comment" : "comments"}`}
-        </p>
       </header>
 
       {comments.length > 0 ? (
@@ -150,7 +145,7 @@ export default function Comments({ contentId, comments }: CommentsProps) {
       ) : null}
 
       <form
-        class="mt-9 border-t border-neutral-200 pt-7 dark:border-neutral-800"
+        class="mt-5 border-neutral-200 pt-5 dark:border-neutral-800"
         onSubmit={submit}
       >
         {reply ? (
