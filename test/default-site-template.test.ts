@@ -55,7 +55,7 @@ describe("default site template", () => {
     expect(css).toContain("text-decoration:none");
     expect(css).toContain("border-left-width:2px");
     expect(css).toContain("prefers-reduced-motion:reduce");
-    expect(css).toContain("article-scroll-nav");
+    expect(css).toContain("72vh");
     expect(css).toContain("scrollbar-width:none");
   }, 15_000);
 });
