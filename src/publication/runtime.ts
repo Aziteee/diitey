@@ -3,11 +3,18 @@ import { parse as parseCookie, serialize as serializeCookie } from "cookie";
 import { runWithTimeout } from "../plugin-invoke.ts";
 import {
   callPluginService,
+  createContentLookup,
   PluginInputError,
   PluginNotFoundError,
 } from "../plugins.ts";
 import { preparePluginDatabase } from "../plugin-database.ts";
 import { createActionRateLimiter } from "../rate-limit.ts";
+import {
+  createAdminRuntime,
+  type AdminRuntime,
+} from "../admin/runtime.ts";
+import type { AdminSecurityConfig } from "../admin/security.ts";
+import { compileAdminProgram } from "../admin/program.ts";
 import { buildContentSnapshot } from "./content-snapshot.ts";
 import {
   buildEffectivePublication,
@@ -70,8 +77,21 @@ export interface PublicationRuntime {
 
 export async function openPublication(options: {
   readonly root: string;
+  readonly security?: AdminSecurityConfig;
 }): Promise<PublicationRuntime> {
   const program = await compileSiteProgram(options.root);
+  const security =
+    options.security ??
+    Object.freeze({
+      enabled: false,
+      token: null,
+      publicOrigin: "http://127.0.0.1",
+      secureCookies: false,
+    });
+  const adminProgram = await compileAdminProgram({
+    enabled: security.enabled,
+    plugins: program.pluginEntries,
+  });
   const content = await buildContentSnapshot(program);
   let publication = buildEffectivePublication(program, content);
   const snapshotWorker = await SnapshotWorker.create(
@@ -95,6 +115,13 @@ export async function openPublication(options: {
   const hasCookieActions = Object.values(program.plugins.actions).some(
     (action) => action.credentials === "cookie",
   );
+  const adminRuntime: AdminRuntime = createAdminRuntime({
+    adminProgram,
+    plugins: program.plugins,
+    pluginDatabase,
+    getPublication: () => publication,
+    security,
+  });
 
   return {
     async handle(request, context = {}) {
@@ -106,6 +133,13 @@ export async function openPublication(options: {
 
       if (url.pathname === "/_system" || url.pathname.startsWith("/_system/")) {
         return new Response("Not Found", { status: 404 });
+      }
+
+      if (
+        url.pathname === "/_admin" ||
+        url.pathname.startsWith("/_admin/")
+      ) {
+        return adminRuntime.handle(request, context);
       }
 
       if (url.pathname.startsWith("/_action/")) {
@@ -171,6 +205,7 @@ export async function openPublication(options: {
           islands: program.islands,
           styles: program.styles,
           contentIds: requestPublication.contentIds,
+          contentById: requestPublication.content.byId,
         });
         const html = program.usesDocument
           ? `<!doctype html>${body}`
@@ -300,7 +335,9 @@ async function handleAction(
 ): Promise<Response> {
   const actionName = url.pathname.slice("/_action/".length);
   const action = program.plugins.actions[actionName];
-  if (!action) return new Response("Not Found", { status: 404 });
+  if (!action || action.access === "admin") {
+    return new Response("Not Found", { status: 404 });
+  }
   const requestId = crypto.randomUUID();
   const startedAt = performance.now();
   if (request.method !== "POST") {
@@ -355,7 +392,7 @@ async function handleAction(
         action.service,
         parsedBody,
         pluginDatabase,
-        publication.contentIds,
+        createContentLookup(publication.content.byId),
         signal,
       ),
     );

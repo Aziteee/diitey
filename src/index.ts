@@ -47,6 +47,12 @@ export interface SiteDefinition {
   };
 }
 
+export interface PluginAdminPageDefinition {
+  readonly component: string;
+  readonly title?: string;
+  readonly dataService?: string;
+}
+
 export interface PluginDefinition {
   readonly id?: string;
   readonly name?: string;
@@ -55,6 +61,7 @@ export interface PluginDefinition {
   readonly migrations?: readonly PluginMigration[];
   readonly services?: Readonly<Record<string, PluginServiceDefinition>>;
   readonly actions?: Readonly<Record<string, ActionDefinition>>;
+  readonly adminPage?: PluginAdminPageDefinition;
   readonly markdown?: {
     readonly remarkPlugins?: readonly Pluggable[];
     readonly rehypePlugins?: readonly Pluggable[];
@@ -67,11 +74,20 @@ export interface PluginMigration {
   readonly sql: string;
 }
 
+export interface ContentSummary {
+  readonly id: string;
+  readonly created: string;
+  readonly sourcePath: string;
+  readonly url: string;
+  readonly attributes: Readonly<Record<string, unknown>>;
+}
+
 export interface PluginServiceContext {
   readonly database: Database;
   readonly signal: AbortSignal;
   readonly content: {
     exists(contentId: string): boolean;
+    get(contentId: string): ContentSummary | undefined;
   };
 }
 
@@ -86,6 +102,7 @@ export interface PluginServiceDefinition {
 
 export interface ActionDefinition {
   readonly service: string;
+  readonly access?: "public" | "admin";
   readonly bodyLimitBytes?: number;
   readonly rateLimit?: {
     readonly limit: number;

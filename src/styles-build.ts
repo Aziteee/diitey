@@ -6,42 +6,43 @@ import {
   type BuiltThemeStyles,
 } from "./styles.ts";
 
-export async function buildThemeStyles(
-  themePath: string,
-  stylesName: string | undefined,
-  siteRoot?: string,
-): Promise<BuiltThemeStyles> {
-  if (!stylesName) {
-    return emptyThemeStyles;
-  }
+export interface BuildStylesOptions {
+  readonly entryPath: string;
+  readonly label: string;
+  readonly assetPathPrefix: string;
+  readonly assetName?: string;
+  readonly siteRoot?: string;
+}
 
-  const entryPath = resolve(dirname(themePath), `${stylesName}.css`);
+export async function buildStyles(
+  options: BuildStylesOptions,
+): Promise<BuiltThemeStyles> {
   try {
-    await access(entryPath);
+    await access(options.entryPath);
   } catch {
     throw new Error(
-      `Failed to build theme stylesheet: missing entry ${stylesName}.css`,
+      `Failed to build ${options.label}: missing entry ${options.entryPath}`,
     );
   }
 
-  const plugins = await loadOptionalTailwindPlugins(siteRoot);
+  const plugins = await loadOptionalTailwindPlugins(options.siteRoot);
   let result: Awaited<ReturnType<typeof Bun.build>>;
   try {
     result = await Bun.build({
-      entrypoints: [entryPath],
+      entrypoints: [options.entryPath],
       target: "browser",
       minify: true,
       ...(plugins.length > 0 ? { plugins } : {}),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to build theme stylesheet: ${message}`);
+    throw new Error(`Failed to build ${options.label}: ${message}`);
   }
 
   if (!result.success) {
     const details = result.logs.map((log) => log.message).join("\n");
     throw new Error(
-      `Failed to build theme stylesheet${details ? `: ${details}` : ""}`,
+      `Failed to build ${options.label}${details ? `: ${details}` : ""}`,
     );
   }
 
@@ -57,7 +58,7 @@ export async function buildThemeStyles(
 
   if (!cssOutput) {
     throw new Error(
-      "Failed to build theme stylesheet: no CSS asset was emitted",
+      `Failed to build ${options.label}: no CSS asset was emitted`,
     );
   }
 
@@ -66,11 +67,32 @@ export async function buildThemeStyles(
     .update(body)
     .digest("hex")
     .slice(0, 16);
-  const path = `/assets/theme/styles-${hash}.css`;
+  const name = options.assetName ?? "styles";
+  const prefix = options.assetPathPrefix.replace(/\/+$/, "");
+  const path = `${prefix}/${name}-${hash}.css`;
 
   return Object.freeze({
     stylesheetPath: path,
     assets: Object.freeze([Object.freeze({ path, body })]),
+  });
+}
+
+export async function buildThemeStyles(
+  themePath: string,
+  stylesName: string | undefined,
+  siteRoot?: string,
+): Promise<BuiltThemeStyles> {
+  if (!stylesName) {
+    return emptyThemeStyles;
+  }
+
+  const entryPath = resolve(dirname(themePath), `${stylesName}.css`);
+  return buildStyles({
+    entryPath,
+    label: "theme stylesheet",
+    assetPathPrefix: "/assets/theme",
+    assetName: "styles",
+    siteRoot,
   });
 }
 

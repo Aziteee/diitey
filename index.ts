@@ -5,6 +5,7 @@ import {
   runManagementCommand,
 } from "./src/management-client.ts";
 import { startSite } from "./src/server.ts";
+import { parsePublicOrigin } from "./src/admin/security.ts";
 
 const [, , command, ...args] = process.argv;
 const root = resolve(readOption(args, "--root") ?? process.cwd());
@@ -17,7 +18,7 @@ try {
     console.log(JSON.stringify(result));
   } else {
     throw new Error(
-      "Usage: diitey <start|reload|status> [--root <directory>] [--port <number>]",
+      "Usage: diitey <start|reload|status> [--root <directory>] [--port <number>] [--host <address>] [--public-origin <origin>] [--admin-token <token>]",
     );
   }
 } catch (error) {
@@ -36,7 +37,26 @@ async function runStart(root: string, args: string[]): Promise<void> {
     throw new Error(`Invalid port: ${portValue}`);
   }
 
-  const site = await startSite({ root, port });
+  const host = readOption(args, "--host") ?? "127.0.0.1";
+  const publicOriginOption =
+    readOption(args, "--public-origin") ??
+    process.env.DIITEY_PUBLIC_ORIGIN ??
+    null;
+  const publicOrigin = publicOriginOption
+    ? parsePublicOrigin(publicOriginOption, "public origin")
+    : null;
+  const adminToken =
+    readOption(args, "--admin-token") ??
+    process.env.DIITEY_ADMIN_TOKEN ??
+    null;
+
+  const site = await startSite({
+    root,
+    port,
+    host,
+    adminToken,
+    publicOrigin,
+  });
   console.log(`Listening on ${site.url.origin}`);
 
   let stopping = false;

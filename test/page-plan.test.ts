@@ -113,6 +113,7 @@ describe("Page Plan stages", () => {
         },
       }),
       actions: Object.freeze({}),
+      adminActions: Object.freeze({}),
     };
     expect(() =>
       compilePageBindings({
@@ -229,6 +230,7 @@ describe("Page Plan stages", () => {
       pluginRuntime: {
         services: Object.freeze({}),
         actions: Object.freeze({}),
+        adminActions: Object.freeze({}),
       },
     });
     const entries = plan.publish(snapshot([item]), [

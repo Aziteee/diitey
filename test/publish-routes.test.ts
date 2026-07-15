@@ -82,8 +82,10 @@ function makeProgram(options: {
     plugins: Object.freeze({
       services: Object.freeze({}),
       actions: Object.freeze({}),
+      adminActions: Object.freeze({}),
     }),
     pluginDefinitions: Object.freeze([]),
+    pluginEntries: Object.freeze([]),
     reloadTimeoutMs: 30_000,
   });
 }

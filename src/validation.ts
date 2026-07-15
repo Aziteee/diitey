@@ -140,6 +140,7 @@ const pluginServiceDefinition = z
 const actionDefinition = z
   .object({
     service: z.string().min(1),
+    access: z.enum(["public", "admin"]).optional(),
     bodyLimitBytes: positiveInteger.max(65_536).optional(),
     rateLimit: z
       .object({
@@ -150,6 +151,14 @@ const actionDefinition = z
       .optional(),
     timeoutMs: positiveInteger.optional(),
     credentials: z.literal("cookie").optional(),
+  })
+  .strict();
+
+const pluginAdminPageDefinition = z
+  .object({
+    component: z.string().min(1),
+    title: z.string().min(1).optional(),
+    dataService: z.string().min(1).optional(),
   })
   .strict();
 
@@ -172,6 +181,7 @@ const pluginDefinitionSchema = z
       .optional(),
     services: z.record(z.string(), pluginServiceDefinition).optional(),
     actions: z.record(z.string(), actionDefinition).optional(),
+    adminPage: pluginAdminPageDefinition.optional(),
     markdown: z
       .object({
         remarkPlugins: z.array(z.unknown()).optional(),

@@ -1,9 +1,18 @@
 import { removeRuntimeInfo, writeRuntimeInfo } from "./runtime-info.ts";
 import { openPublication } from "./publication/runtime.ts";
+import {
+  isLoopbackHost,
+  parsePublicOrigin,
+  resolveAdminSecurity,
+  type AdminSecurityConfig,
+} from "./admin/security.ts";
 
-interface StartOptions {
-  root: string;
-  port: number;
+export interface StartOptions {
+  readonly root: string;
+  readonly port: number;
+  readonly host?: string;
+  readonly adminToken?: string | null;
+  readonly publicOrigin?: string | null;
 }
 
 interface RunningSite {
@@ -12,11 +21,27 @@ interface RunningSite {
 }
 
 export async function startSite(options: StartOptions): Promise<RunningSite> {
-  const publication = await openPublication({ root: options.root });
+  const host = options.host ?? "127.0.0.1";
+  const adminToken = options.adminToken ?? null;
+  const publicOrigin = options.publicOrigin
+    ? parsePublicOrigin(options.publicOrigin, "public origin")
+    : null;
+
+  const security = resolveStartupSecurity({
+    host,
+    port: options.port,
+    adminToken,
+    publicOrigin,
+  });
+
+  const publication = await openPublication({
+    root: options.root,
+    security,
+  });
 
   const publicServer = Bun.serve({
-    hostname: "127.0.0.1",
-    port: options.port,
+    hostname: host,
+    port: security.listenPort,
     async fetch(request, server) {
       return publication.handle(request, {
         clientAddress: server.requestIP(request)?.address,
@@ -24,13 +49,25 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
     },
   });
 
+  if (
+    security.enabled &&
+    !publicOrigin &&
+    publicServer.url.origin !== security.publicOrigin
+  ) {
+    publicServer.stop(true);
+    await publication.close();
+    throw new Error(
+      `Bound origin ${publicServer.url.origin} does not match configured public origin ${security.publicOrigin}`,
+    );
+  }
+
   const token = crypto.randomUUID();
   const adminServer = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     async fetch(request, server) {
       const client = server.requestIP(request);
-      if (!client || !isLoopback(client.address)) {
+      if (!client || !isLoopbackAddress(client.address)) {
         return new Response("Not Found", { status: 404 });
       }
       if (request.headers.get("authorization") !== `Bearer ${token}`) {
@@ -86,7 +123,55 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
   };
 }
 
-function isLoopback(address: string): boolean {
+function resolveStartupSecurity(options: {
+  readonly host: string;
+  readonly port: number;
+  readonly adminToken: string | null;
+  readonly publicOrigin: string | null;
+}): AdminSecurityConfig & { readonly listenPort: number } {
+  let listenPort = options.port;
+  let boundOrigin: string | undefined;
+
+  if (options.publicOrigin) {
+    boundOrigin = options.publicOrigin;
+  } else if (options.adminToken && isLoopbackHost(options.host)) {
+    if (options.port === 0) {
+      const probe = Bun.serve({
+        hostname: options.host,
+        port: 0,
+        fetch() {
+          return new Response("Not Found", { status: 404 });
+        },
+      });
+      listenPort = probe.port ?? 0;
+      boundOrigin = probe.url.origin;
+      probe.stop(true);
+      if (!listenPort) {
+        throw new Error("Failed to reserve a publicServer port");
+      }
+    } else {
+      boundOrigin = `http://${formatHostForUrl(options.host)}:${options.port}`;
+    }
+  }
+
+  const security = resolveAdminSecurity({
+    adminToken: options.adminToken,
+    publicOrigin: options.publicOrigin,
+    host: options.host,
+    boundOrigin,
+  });
+
+  return Object.freeze({
+    ...security,
+    listenPort,
+  });
+}
+
+function formatHostForUrl(host: string): string {
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+}
+
+function isLoopbackAddress(address: string): boolean {
   return (
     address === "127.0.0.1" ||
     address === "::1" ||

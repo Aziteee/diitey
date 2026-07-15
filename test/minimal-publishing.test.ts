@@ -578,7 +578,7 @@ async function waitForStartFailure(
 ): Promise<{ exitCode: number | null; error: string }> {
   const exitCode = await Promise.race([
     process.exited,
-    Bun.sleep(1_000).then(() => null),
+    Bun.sleep(5_000).then(() => null),
   ]);
   if (exitCode === null) {
     process.kill();

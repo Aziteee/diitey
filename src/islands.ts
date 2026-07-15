@@ -154,33 +154,62 @@ export async function buildThemeIslands(themePath: string): Promise<BuiltIslands
         entry.isFile() && [".ts", ".tsx"].includes(extname(entry.name)),
     )
     .map((entry) => resolve(islandsRoot, entry.name))
-    .sort();
+    .sort()
+    .map((sourceFile) => ({
+      name: basename(sourceFile, extname(sourceFile)),
+      sourceFile,
+    }));
+  return buildIslandSet({
+    sources: sourceFiles,
+    assetPathPrefix: "/assets/islands",
+    manifestPath: "/assets/island-manifest.json",
+  });
+}
+
+export async function buildPluginAdminIslands(
+  sources: readonly { readonly name: string; readonly sourceFile: string }[],
+): Promise<BuiltIslands> {
+  return buildIslandSet({
+    sources,
+    assetPathPrefix: "/_admin/assets/islands",
+    manifestPath: "/_admin/assets/island-manifest.json",
+  });
+}
+
+async function buildIslandSet(options: {
+  readonly sources: readonly {
+    readonly name: string;
+    readonly sourceFile: string;
+  }[];
+  readonly assetPathPrefix: string;
+  readonly manifestPath: string;
+}): Promise<BuiltIslands> {
   const manifest: Record<string, string> = Object.create(null) as Record<
     string,
     string
   >;
   const assets: IslandAsset[] = [];
+  const prefix = options.assetPathPrefix.replace(/\/+$/, "");
 
-  for (const sourceFile of sourceFiles) {
-    const name = basename(sourceFile, extname(sourceFile));
-    if (manifest[name]) {
-      throw new Error(`Duplicate island name: ${name}`);
+  for (const source of options.sources) {
+    if (manifest[source.name]) {
+      throw new Error(`Duplicate island name: ${source.name}`);
     }
-    const body = await buildIslandBundle(name, sourceFile);
+    const body = await buildIslandBundle(source.name, source.sourceFile);
     const hash = new Bun.CryptoHasher("sha256")
       .update(body)
       .digest("hex")
       .slice(0, 16);
-    const path = `/assets/islands/${name}-${hash}.js`;
-    manifest[name] = path;
+    const path = `${prefix}/${source.name}-${hash}.js`;
+    manifest[source.name] = path;
     assets.push(Object.freeze({ path, body }));
   }
-  const runtimeBody = buildHydrationRuntime();
+  const runtimeBody = buildHydrationRuntime(options.manifestPath);
   const runtimeHash = new Bun.CryptoHasher("sha256")
     .update(runtimeBody)
     .digest("hex")
     .slice(0, 16);
-  const runtimePath = `/assets/islands/hydrate-${runtimeHash}.js`;
+  const runtimePath = `${prefix}/hydrate-${runtimeHash}.js`;
   assets.push(Object.freeze({ path: runtimePath, body: runtimeBody }));
 
   return Object.freeze({
@@ -190,8 +219,8 @@ export async function buildThemeIslands(themePath: string): Promise<BuiltIslands
   });
 }
 
-function buildHydrationRuntime(): string {
-  return `const roots=[...document.querySelectorAll("[data-diitey-island]")];const names=[...new Set(roots.map(root=>root.getAttribute("data-diitey-island")).filter(Boolean))];if(names.length){const response=await fetch("/assets/island-manifest.json",{cache:"no-store"});if(!response.ok)throw new Error("Failed to load island manifest");const manifest=await response.json();await Promise.all(names.map(name=>{const path=manifest[name];if(!path)throw new Error("Unknown island: "+name);return import(path)}))}`;
+function buildHydrationRuntime(manifestPath: string): string {
+  return `const roots=[...document.querySelectorAll("[data-diitey-island]")];const names=[...new Set(roots.map(root=>root.getAttribute("data-diitey-island")).filter(Boolean))];if(names.length){const response=await fetch(${JSON.stringify(manifestPath)},{cache:"no-store"});if(!response.ok)throw new Error("Failed to load island manifest");const manifest=await response.json();await Promise.all(names.map(name=>{const path=manifest[name];if(!path)throw new Error("Unknown island: "+name);return import(path)}))}`;
 }
 
 async function buildIslandBundle(

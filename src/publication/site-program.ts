@@ -41,6 +41,10 @@ export interface SiteProgram {
   };
   readonly plugins: PluginRuntime;
   readonly pluginDefinitions: readonly PluginDefinition[];
+  readonly pluginEntries: readonly {
+    readonly definition: PluginDefinition;
+    readonly entryPath: string;
+  }[];
   readonly reloadTimeoutMs: number;
 }
 
@@ -65,6 +69,12 @@ export async function compileSiteProgram(
     options.styles ??
     (await buildThemeStyles(themePath, theme.styles, root));
   const plugins = extensions.plugins.map((plugin) => plugin.definition);
+  const pluginEntries = extensions.plugins.map((plugin) =>
+    Object.freeze({
+      definition: plugin.definition,
+      entryPath: plugin.entryPath,
+    }),
+  );
   const pluginRuntime = buildPluginRuntime(plugins);
   if (theme.routes.length === 0) {
     throw new Error("Theme must declare at least one route");
@@ -152,6 +162,7 @@ export async function compileSiteProgram(
     }),
     plugins: pluginRuntime,
     pluginDefinitions: Object.freeze(plugins),
+    pluginEntries: Object.freeze(pluginEntries),
     reloadTimeoutMs,
   });
 }

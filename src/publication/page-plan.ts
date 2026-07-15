@@ -15,6 +15,7 @@ import {
 import { runWithTimeout } from "../plugin-invoke.ts";
 import {
   callPluginService,
+  createContentLookup,
   type PluginRuntime,
 } from "../plugins.ts";
 import {
@@ -30,6 +31,7 @@ export interface RequestRuntime {
   readonly islands: BuiltIslands;
   readonly styles: BuiltThemeStyles;
   readonly contentIds: ReadonlySet<string>;
+  readonly contentById: ReadonlyMap<string, ContentRecord>;
 }
 
 export interface PublishedRouteEntry {
@@ -110,6 +112,7 @@ export function compilePageBindings(options: {
   const pluginRuntime: PluginRuntime = options.pluginRuntime ?? {
     services: Object.freeze({}),
     actions: Object.freeze({}),
+    adminActions: Object.freeze({}),
   };
   const bindings = Object.entries(options.data);
   if (bindings.length === 0) {
@@ -637,7 +640,7 @@ async function resolveServices(
             service.service,
             input,
             runtime.pluginDatabase,
-            runtime.contentIds,
+            createContentLookup(runtime.contentById),
             signal,
           ),
         );
