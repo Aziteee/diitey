@@ -62,6 +62,12 @@ export default defineTheme({
               collection: "posts",
               match: "posts/:slug.md",
             },
+            comments: {
+              service: "comments.list",
+              input: {
+                contentId: { from: "post.id" },
+              },
+            },
           }),
         ),
       ],

@@ -18,5 +18,12 @@ export default defineSite({
         darkTheme: "vitesse-dark",
       },
     },
+    {
+      use: "./plugins/comments/plugin.ts",
+      config: {
+        maxBodyLength: 2000,
+        maxAuthorNameLength: 40,
+      },
+    },
   ],
 });

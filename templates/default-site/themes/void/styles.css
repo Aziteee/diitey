@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @source "./pages/**/*.{tsx,ts,jsx,js}";
+@source "./islands/**/*.{tsx,ts,jsx,js}";
 
 @layer base {
   :root {
