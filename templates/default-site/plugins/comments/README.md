@@ -107,3 +107,18 @@ comments: {
 ```
 
 列表由 SSR 注入 island props；提交表单在主题 island 中调用 `/_action/comments.create`，成功后刷新页面。
+
+## Admin
+
+插件声明了单一 admin 页（路径 `/_admin/comments`），需配置 admin token 后启动：
+
+```bash
+diitey start --admin-token "<32+ byte token>"
+```
+
+| 能力 | 说明 |
+|------|------|
+| `comments.adminList` | SSR dataService：最近 500 条评论（含 email、内容 URL/标题） |
+| `POST /_admin/action/comments/delete` | 删除评论；删根评论时一并删除其回复 |
+
+admin 浏览器组件：`./admin.tsx`。

@@ -12,42 +12,59 @@ const preactSubpaths = [
 let installed = false;
 
 /**
- * Theme pages/islands resolve `preact` from the site root; diitey SSR resolves
- * it from the package install. Two physical copies break hooks (`r.__H`).
- *
- * Bun.plugin onResolve does not rewrite runtime imports of absolute theme paths,
- * so theme TSX/TS is loaded through onLoad: classic-JSX transpile + rewrite every
- * `preact*` import onto the same modules diitey uses.
- */
-export function installPreactSingleton(): void {
-  if (installed) return;
-  installed = true;
+   * Theme pages/islands and plugin admin components resolve `preact` from the
+   * site root; diitey SSR resolves it from the package install. Two physical
+   * copies break hooks (`r.__H`).
+   *
+   * Bun.plugin onResolve does not rewrite runtime imports of absolute site
+   * paths, so TSX/TS is loaded through onLoad: classic-JSX transpile + rewrite
+   * every `preact*` import onto the same modules diitey uses.
+   */
+  export function installPreactSingleton(): void {
+    if (installed) return;
+    installed = true;
 
-  const from = import.meta.dir;
-  const resolved = new Map<string, string>();
-  for (const id of preactSubpaths) {
-    try {
-      resolved.set(id, Bun.resolveSync(id, from));
-    } catch {
-      // optional subpath
+    const from = import.meta.dir;
+    const resolved = new Map<string, string>();
+    for (const id of preactSubpaths) {
+      try {
+        resolved.set(id, Bun.resolveSync(id, from));
+      } catch {
+        // optional subpath
+      }
     }
-  }
-  const preactMain = resolved.get("preact");
-  if (!preactMain) {
-    throw new Error("diitey requires the preact package");
-  }
+    const preactMain = resolved.get("preact");
+    if (!preactMain) {
+      throw new Error("diitey requires the preact package");
+    }
 
-  Bun.plugin({
-    name: "diitey-preact-singleton",
-    setup(build) {
-      // Only theme sources — keep the filter narrow so we always return contents.
-      build.onLoad(
-        { filter: /[/\\]themes[/\\].+\.(tsx|jsx)$/ },
-        async (args) => {
+    const siteSource =
+      /[/\\](?:themes|plugins)[/\\].+\.(tsx|jsx|ts)$/;
+
+    Bun.plugin({
+      name: "diitey-preact-singleton",
+      setup(build) {
+        build.onLoad({ filter: siteSource }, async (args) => {
           if (args.path.includes(`${"node_modules"}`)) {
-            return { contents: await Bun.file(args.path).text(), loader: "tsx" };
+            const loader = args.path.endsWith(".ts")
+              ? "ts"
+              : args.path.endsWith(".tsx")
+                ? "tsx"
+                : "jsx";
+            return {
+              contents: await Bun.file(args.path).text(),
+              loader,
+            };
           }
+
           const source = await Bun.file(args.path).text();
+          if (args.path.endsWith(".ts") && !args.path.endsWith(".tsx")) {
+            return {
+              contents: rewritePreactSpecifiers(source, resolved),
+              loader: "ts",
+            };
+          }
+
           const loader = args.path.endsWith("tsx") ? "tsx" : "jsx";
           const transpiler = new Bun.Transpiler({
             loader,
@@ -67,23 +84,10 @@ export function installPreactSingleton(): void {
               code;
           }
           return { contents: code, loader: "js" };
-        },
-      );
-
-      build.onLoad(
-        { filter: /[/\\]themes[/\\].+\.ts$/ },
-        async (args) => {
-          if (args.path.includes(`${"node_modules"}`)) {
-            return { contents: await Bun.file(args.path).text(), loader: "ts" };
-          }
-          const source = await Bun.file(args.path).text();
-          const code = rewritePreactSpecifiers(source, resolved);
-          return { contents: code, loader: "ts" };
-        },
-      );
-    },
-  });
-}
+        });
+      },
+    });
+  }
 
 function rewritePreactSpecifiers(
   code: string,

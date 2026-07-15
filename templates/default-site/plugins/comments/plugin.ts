@@ -106,10 +106,53 @@ export default definePlugin({
       })
       .strict();
 
+    const emptyInput = z.object({}).strict();
+    const deleteInput = z
+      .object({
+        id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+      })
+      .strict();
+    const adminCommentOutput = z
+      .object({
+        id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+        contentId: z.string(),
+        parentId: z
+          .number()
+          .int()
+          .positive()
+          .max(Number.MAX_SAFE_INTEGER)
+          .nullable(),
+        authorName: z.string(),
+        email: z.string().nullable(),
+        body: z.string(),
+        createdAt: z.string(),
+        contentUrl: z.string().nullable(),
+        contentTitle: z.string().nullable(),
+      })
+      .strict();
+    const adminListOutput = z
+      .object({
+        comments: z.array(adminCommentOutput),
+        total: z.number().int().nonnegative(),
+      })
+      .strict();
+    const deleteOutput = z
+      .object({
+        id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+        deleted: z.number().int().nonnegative(),
+      })
+      .strict();
+
     return {
       id: "comments",
       version: "1.0.0",
       schemaVersion: 1,
+
+      adminPage: {
+        component: "./admin.tsx",
+        title: "Comments",
+        dataService: "comments.adminList",
+      },
 
       migrations: [
         {
@@ -155,6 +198,81 @@ export default definePlugin({
               .all(input.contentId);
 
             return buildCommentTree(rows);
+          },
+        },
+
+        "comments.adminList": {
+          input: emptyInput,
+          output: adminListOutput,
+          handler(_input, { database, content }) {
+            const rows = database
+              .query<CommentRow, []>(
+                `SELECT
+                   id,
+                   content_id AS contentId,
+                   parent_id AS parentId,
+                   reply_to_id AS replyToId,
+                   author_name AS authorName,
+                   email,
+                   body,
+                   created_at AS createdAt
+                 FROM comments
+                 ORDER BY id DESC
+                 LIMIT 500`,
+              )
+              .all();
+
+            const comments = rows.map((row) => {
+              const summary = content.get(row.contentId);
+              const title = summary
+                ? readContentTitle(summary.attributes)
+                : null;
+              return {
+                id: row.id,
+                contentId: row.contentId,
+                parentId: row.parentId,
+                authorName: row.authorName,
+                email: row.email,
+                body: row.body,
+                createdAt: row.createdAt,
+                contentUrl: summary?.url ?? null,
+                contentTitle: title,
+              };
+            });
+
+            return { comments, total: comments.length };
+          },
+        },
+
+        "comments.delete": {
+          input: deleteInput,
+          output: deleteOutput,
+          handler(input, { database }) {
+            const row = database
+              .query<{ id: number; parentId: number | null }, [number]>(
+                `SELECT id, parent_id AS parentId FROM comments WHERE id = ?`,
+              )
+              .get(input.id);
+            if (!row) {
+              throw new PluginNotFoundError(`Comment ${input.id} does not exist`);
+            }
+
+            let deleted = 0;
+            if (row.parentId === null) {
+              const replies = database
+                .query(
+                  `DELETE FROM comments WHERE parent_id = ? OR id = ?`,
+                )
+                .run(input.id, input.id);
+              deleted = Number(replies.changes);
+            } else {
+              const result = database
+                .query(`DELETE FROM comments WHERE id = ?`)
+                .run(input.id);
+              deleted = Number(result.changes);
+            }
+
+            return { id: input.id, deleted };
           },
         },
 
@@ -285,6 +403,13 @@ export default definePlugin({
           rateLimit: { limit: 10, windowMs: 60_000 },
           timeoutMs: 2_000,
         },
+        delete: {
+          service: "comments.delete",
+          access: "admin",
+          bodyLimitBytes: 256,
+          rateLimit: { limit: 60, windowMs: 60_000 },
+          timeoutMs: 2_000,
+        },
       },
     };
   },
@@ -345,4 +470,11 @@ function toPublicNode(row: CommentRow, replyTo: ReplyTo | null): CommentNode {
     body: row.body,
     createdAt: row.createdAt,
   };
+}
+
+function readContentTitle(
+  attributes: Readonly<Record<string, unknown>>,
+): string | null {
+  const title = attributes.title;
+  return typeof title === "string" && title.trim() ? title : null;
 }
