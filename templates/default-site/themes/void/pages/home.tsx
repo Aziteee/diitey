@@ -41,7 +41,10 @@ export default function Home({ home, posts, pagination }: HomeProps) {
                   >
                     {formatDate(post.created)}
                   </time>
-                  <span class="text-lg font-normal leading-7 tracking-[-0.015em] text-neutral-700 transition-colors duration-300 group-hover:text-neutral-950 group-focus-visible:text-neutral-950 dark:text-neutral-300 dark:group-hover:text-white dark:group-focus-visible:text-white">
+                  <span
+                    data-vt-title={post.id}
+                    class="text-lg font-normal leading-7 tracking-[-0.015em] text-neutral-700 transition-colors duration-300 group-hover:text-neutral-950 group-focus-visible:text-neutral-950 dark:text-neutral-300 dark:group-hover:text-white dark:group-focus-visible:text-white"
+                  >
                     {String(post.attributes.title)}
                   </span>
                 </a>

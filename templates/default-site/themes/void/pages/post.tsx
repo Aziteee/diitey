@@ -43,6 +43,8 @@ export default function Post({ post, comments }: PostProps) {
           <h1
             id="post-title"
             data-scroll-heading
+            data-vt-post-title={post.id}
+            style="view-transition-name: post-title;"
             class="m-0 scroll-mt-8 font-serif text-[2.375rem] font-medium leading-[1.1] tracking-[-0.01em] text-balance text-[color:var(--heading)]"
           >
             {title}

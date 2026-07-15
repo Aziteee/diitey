@@ -32,7 +32,8 @@ describe("default site template", () => {
     expect(homeHtml).toContain('href="/archives/negative-space"');
     expect(homeHtml).toContain("Jul 8, 2026");
     expect(homeHtml).not.toContain("<nav");
-    expect(homeHtml).not.toContain("<script");
+    expect(homeHtml).not.toContain('data-diitey-island');
+    expect(homeHtml).toContain("pageswap");
 
     expect(postResponse.status).toBe(200);
     expect(postHtml).toContain("<title>留白不是空白 — void</title>");
