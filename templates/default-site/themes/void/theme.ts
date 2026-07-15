@@ -51,6 +51,15 @@ export default defineTheme({
             },
             posts: {
               collection: "posts",
+              paginate: 6,
+            },
+          }),
+        ),
+        route(
+          "/archives",
+          page("archives", {
+            posts: {
+              collection: "posts",
               paginate: config.postsPerPage,
             },
           }),

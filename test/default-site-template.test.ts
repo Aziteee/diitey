@@ -10,20 +10,25 @@ afterEach(async () => {
   await Promise.all(processes.splice(0).map((process) => process.exited));
 });
 
-test("the default site template serves its home and article pages", async () => {
+test("the default site template serves its home, archives, and article pages", async () => {
   const process = spawnSite();
   const address = await readServerAddress(process);
-  const [home, article] = await Promise.all([
+  const [home, archives, article] = await Promise.all([
     fetch(address),
+    fetch(`${address}/archives`),
     fetch(`${address}/archives/negative-space`),
   ]);
-  const [homeHtml, articleHtml] = await Promise.all([
+  const [homeHtml, archivesHtml, articleHtml] = await Promise.all([
     home.text(),
+    archives.text(),
     article.text(),
   ]);
 
   expect(home.status).toBe(200);
   expect(homeHtml).toContain('href="/archives/negative-space"');
+  expect(archives.status).toBe(200);
+  expect(archivesHtml).toContain('href="/archives/negative-space"');
+  expect(archivesHtml).toContain("Writing");
   expect(article.status).toBe(200);
   expect(articleHtml).toContain('data-diitey-island="article-scroll-nav"');
 }, 15_000);

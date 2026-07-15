@@ -2,7 +2,9 @@ import {
   type ContentRecord,
   type Pagination,
 } from "diitey";
-import { formatDate } from "../shared/date.ts";
+import { PostList } from "../shared/post-list.tsx";
+
+const HOME_POSTS_LIMIT = 6;
 
 interface HomeProps {
   readonly home: readonly ContentRecord[];
@@ -12,6 +14,7 @@ interface HomeProps {
 
 export default function Home({ home, posts, pagination }: HomeProps) {
   const homeRecord = home[0];
+  const hasMore = pagination.totalItems > HOME_POSTS_LIMIT;
 
   return (
     <main class="mx-auto w-full max-w-[45rem] px-6 py-16 font-serif sm:px-8 sm:py-24">
@@ -21,68 +24,24 @@ export default function Home({ home, posts, pagination }: HomeProps) {
       />
 
       <section aria-labelledby="writing-heading">
-        <h2
-          id="writing-heading"
-          class="mb-3 text-xl font-medium tracking-[-0.02em] text-neutral-900 dark:text-neutral-100"
-        >
-          Writing
-        </h2>
-        {posts.length > 0 ? (
-          <ol class="m-0 list-none p-0">
-            {posts.map((post) => (
-              <li class="-mx-4 border-b border-neutral-200 last:border-b-0 dark:border-neutral-800">
-                <a
-                  href={post.url}
-                  class="group grid gap-2 px-4 py-5 no-underline outline-none transition-colors duration-300 hover:bg-white focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-neutral-300 sm:grid-cols-[8rem_1fr] sm:items-baseline sm:gap-6 dark:hover:bg-neutral-900 dark:focus-visible:bg-neutral-900 dark:focus-visible:ring-neutral-700"
-                >
-                  <time
-                    datetime={post.created}
-                    class="text-sm tabular-nums text-neutral-500 transition-colors duration-300 group-hover:text-neutral-800 group-focus-visible:text-neutral-800 dark:text-neutral-500 dark:group-hover:text-neutral-200 dark:group-focus-visible:text-neutral-200"
-                  >
-                    {formatDate(post.created)}
-                  </time>
-                  <span
-                    data-vt-title={post.id}
-                    class="text-lg font-normal leading-7 tracking-[-0.015em] text-neutral-700 transition-colors duration-300 group-hover:text-neutral-950 group-focus-visible:text-neutral-950 dark:text-neutral-300 dark:group-hover:text-white dark:group-focus-visible:text-white"
-                  >
-                    {String(post.attributes.title)}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p class="text-neutral-500 dark:text-neutral-500">尚无内容。</p>
-        )}
-      </section>
-
-      {pagination.prevHref || pagination.nextHref ? (
-        <nav
-          aria-label="内容分页"
-          class="mt-10 flex justify-between text-sm text-neutral-600 dark:text-neutral-400"
-        >
-          {pagination.prevHref ? (
+        <div class="mb-3 flex items-baseline justify-between gap-4">
+          <h2
+            id="writing-heading"
+            class="m-0 text-xl font-medium tracking-[-0.02em] text-neutral-900 dark:text-neutral-100"
+          >
+            Writing
+          </h2>
+          {hasMore ? (
             <a
-              href={pagination.prevHref}
-              rel="prev"
-              class="animated-link focus-visible:outline-none"
+              href="/archives"
+              class="animated-link shrink-0 text-sm text-neutral-500 focus-visible:outline-none dark:text-neutral-500"
             >
-              ← Newer
-            </a>
-          ) : (
-            <span />
-          )}
-          {pagination.nextHref ? (
-            <a
-              href={pagination.nextHref}
-              rel="next"
-              class="animated-link focus-visible:outline-none"
-            >
-              Older →
+              查看更多
             </a>
           ) : null}
-        </nav>
-      ) : null}
+        </div>
+        <PostList posts={posts} />
+      </section>
     </main>
   );
 }

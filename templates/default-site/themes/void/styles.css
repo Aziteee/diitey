@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @source "./pages/**/*.{tsx,ts,jsx,js}";
 @source "./islands/**/*.{tsx,ts,jsx,js}";
+@source "./shared/**/*.{tsx,ts,jsx,js}";
 
 @view-transition {
   navigation: auto;
