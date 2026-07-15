@@ -159,6 +159,7 @@ const pluginAdminPageDefinition = z
     component: z.string().min(1),
     title: z.string().min(1).optional(),
     dataService: z.string().min(1).optional(),
+    styles: z.string().min(1).optional(),
   })
   .strict();
 

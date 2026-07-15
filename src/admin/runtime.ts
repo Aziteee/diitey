@@ -109,12 +109,9 @@ export function createAdminRuntime(
         return handleLogout(request, options.security, sessionValid);
       }
 
-      if (
-        path === "/_admin/assets/core.css" ||
-        isCoreStylesheet(path, options.adminProgram)
-      ) {
+      if (isPublicAdminStylesheet(path, options.adminProgram)) {
         if (request.method !== "GET") return methodNotAllowed();
-        return serveCoreStyles(options.adminProgram, path);
+        return serveAdminStylesheet(options.adminProgram, path);
       }
 
       if (!sessionValid) {
@@ -197,39 +194,37 @@ export function createAdminRuntime(
   });
 }
 
-function isCoreStylesheet(path: string, program: AdminProgram): boolean {
+function isPublicAdminStylesheet(
+  path: string,
+  program: AdminProgram,
+): boolean {
+  if (path === "/_admin/assets/core.css") return true;
   return (
-    program.coreStylesheetPath !== null && path === program.coreStylesheetPath
+    program.coreStylesheetPath !== null &&
+    path === program.coreStylesheetPath &&
+    program.stylesheetBodies.has(path)
   );
 }
 
-function serveCoreStyles(program: AdminProgram, path: string): Response {
-  const body = program.coreStylesheetBody;
+function serveAdminStylesheet(program: AdminProgram, path: string): Response {
+  const body = program.stylesheetBodies.get(path) ?? program.coreStylesheetBody;
   if (!body) return notFound();
-  if (path === "/_admin/assets/core.css") {
-    return new Response(body, {
-      headers: {
-        ...securityHeaders(),
-        "content-type": "text/css; charset=utf-8",
-        "cache-control": "no-store",
-      },
-    });
-  }
-  if (program.coreStylesheetPath && path === program.coreStylesheetPath) {
-    return new Response(body, {
-      headers: {
-        ...securityHeaders(),
-        "content-type": "text/css; charset=utf-8",
-        "cache-control": "private, max-age=31536000, immutable",
-      },
-    });
-  }
-  return notFound();
+  const immutable = path !== "/_admin/assets/core.css";
+  return new Response(body, {
+    headers: {
+      ...securityHeaders(),
+      "content-type": "text/css; charset=utf-8",
+      "cache-control": immutable
+        ? "private, max-age=31536000, immutable"
+        : "no-store",
+    },
+  });
 }
 
 function serveAdminAsset(program: AdminProgram, path: string): Response {
-  if (path === program.coreStylesheetPath && program.coreStylesheetBody) {
-    return new Response(program.coreStylesheetBody, {
+  const stylesheetBody = program.stylesheetBodies.get(path);
+  if (stylesheetBody !== undefined) {
+    return new Response(stylesheetBody, {
       headers: {
         ...securityHeaders(),
         "content-type": "text/css; charset=utf-8",
@@ -532,6 +527,9 @@ async function renderPluginAdminPage(options: {
     csrfToken: options.csrfToken,
     showNav: true,
     useIslands: true,
+    extraStylesheetPaths: options.page.stylesheetPath
+      ? [options.page.stylesheetPath]
+      : [],
   });
 }
 
@@ -564,6 +562,7 @@ function renderShell(options: {
   readonly status?: number;
   readonly requestId?: string;
   readonly useIslands?: boolean;
+  readonly extraStylesheetPaths?: readonly string[];
 }): Response {
   const navPages = options.adminProgram.pages.map((page) => ({
     pluginId: page.pluginId,
@@ -578,6 +577,7 @@ function renderShell(options: {
       title: props.title,
       stylesheetPath:
         options.adminProgram.coreStylesheetPath ?? "/_admin/assets/core.css",
+      extraStylesheetPaths: options.extraStylesheetPaths ?? [],
       csrfToken: options.csrfToken,
       showNav: options.showNav,
       pages: navPages,

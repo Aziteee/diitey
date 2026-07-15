@@ -152,6 +152,7 @@ export default definePlugin({
         component: "./admin.tsx",
         title: "Comments",
         dataService: "comments.adminList",
+        styles: "admin",
       },
 
       migrations: [

@@ -51,6 +51,8 @@ export interface PluginAdminPageDefinition {
   readonly component: string;
   readonly title?: string;
   readonly dataService?: string;
+  /** CSS entry relative to the plugin entry (e.g. `"admin"` → `admin.css`). */
+  readonly styles?: string;
 }
 
 export interface PluginDefinition {

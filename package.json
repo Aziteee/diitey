@@ -13,14 +13,13 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/picomatch": "^4.0.3",
-    "bun-plugin-tailwind": "^0.1.2",
-    "tailwindcss": "^4.3.2"
+    "@types/picomatch": "^4.0.3"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "bun-plugin-tailwind": "^0.1.2",
     "cookie": "^1.0.2",
     "lru-cache": "^11.5.2",
     "picomatch": "^4.0.5",
@@ -32,6 +31,7 @@
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "tailwindcss": "^4.3.2",
     "unified": "^11.0.5",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"

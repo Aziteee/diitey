@@ -1,87 +1,34 @@
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
-}
+@import "tailwindcss";
+@source "./document.tsx";
+@source "./pages.tsx";
 
-body {
-  margin: 0;
-  background: #0f1115;
-  color: #e8eaed;
-}
+@layer base {
+  :root {
+    color-scheme: dark;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
 
-a {
-  color: #8ab4f8;
-}
+  body {
+    @apply m-0 min-h-screen bg-zinc-950 text-zinc-100;
+  }
 
-.diitey-admin {
-  max-width: 56rem;
-  margin: 0 auto;
-  padding: 1.5rem;
-}
+  a {
+    @apply text-sky-400 no-underline transition-colors hover:text-sky-300;
+  }
 
-.diitey-admin-nav {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #2a2f3a;
-}
+  button {
+    @apply cursor-pointer font-medium;
+  }
 
-.diitey-admin-nav a {
-  text-decoration: none;
-}
-
-.diitey-admin-nav form {
-  margin-left: auto;
-}
-
-.diitey-admin-card {
-  border: 1px solid #2a2f3a;
-  border-radius: 0.5rem;
-  padding: 1rem 1.25rem;
-  margin: 0.75rem 0;
-  background: #171a21;
-}
-
-.diitey-admin-login {
-  max-width: 24rem;
-  margin: 4rem auto;
-  padding: 1.5rem;
-  border: 1px solid #2a2f3a;
-  border-radius: 0.5rem;
-  background: #171a21;
-}
-
-.diitey-admin-login label {
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-.diitey-admin-login input[type="password"] {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 1rem;
-  border-radius: 0.375rem;
-  border: 1px solid #3c4454;
-  background: #0f1115;
-  color: inherit;
-}
-
-.diitey-admin-login button,
-.diitey-admin-nav button {
-  padding: 0.4rem 0.9rem;
-  border-radius: 0.375rem;
-  border: 1px solid #3c4454;
-  background: #2a3142;
-  color: inherit;
-  cursor: pointer;
-}
-
-.diitey-admin-error {
-  color: #f28b82;
-  margin-bottom: 1rem;
+  input,
+  button {
+    font: inherit;
+  }
 }

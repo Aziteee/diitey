@@ -293,6 +293,52 @@ describe("admin surface", () => {
     }
   });
 
+  test("plugin admin stylesheet is linked only on that page and requires a session", async () => {
+    const siteRoot = await copyFixtureSite();
+    await writeAdminPlugin(siteRoot);
+    const publication = await openEnabledPublication(siteRoot);
+    try {
+      const cookie = await loginCookie(publication);
+      const home = await publication.handle(
+        new Request("http://127.0.0.1:3000/_admin", {
+          headers: { cookie },
+        }),
+      );
+      const homeHtml = await home.text();
+      expect(homeHtml).not.toMatch(/\/_admin\/assets\/plugin-notes-/);
+
+      const page = await publication.handle(
+        new Request("http://127.0.0.1:3000/_admin/notes", {
+          headers: { cookie },
+        }),
+      );
+      const pageHtml = await page.text();
+      const styleMatch = pageHtml.match(
+        /\/_admin\/assets\/plugin-notes-[a-f0-9]+\.css/,
+      );
+      expect(styleMatch).toBeTruthy();
+      const stylePath = styleMatch![0]!;
+
+      const denied = await publication.handle(
+        new Request(`http://127.0.0.1:3000${stylePath}`),
+      );
+      expect(denied.status).toBe(401);
+
+      const allowed = await publication.handle(
+        new Request(`http://127.0.0.1:3000${stylePath}`, {
+          headers: { cookie },
+        }),
+      );
+      expect(allowed.status).toBe(200);
+      expect(allowed.headers.get("content-type")).toContain("text/css");
+      const css = await allowed.text();
+      expect(css.length).toBeGreaterThan(0);
+      expect(allowed.headers.get("cache-control")).toContain("immutable");
+    } finally {
+      await publication.close();
+    }
+  });
+
   test("login stylesheet is available without a session when admin is enabled", async () => {
     const siteRoot = await copyFixtureSite();
     const publication = await openEnabledPublication(siteRoot);
@@ -303,7 +349,8 @@ describe("admin surface", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("text/css");
       const body = await response.text();
-      expect(body).toContain("diitey-admin");
+      expect(body.length).toBeGreaterThan(0);
+      expect(body).toMatch(/max-width|border-radius|background|color|font-family/);
     } finally {
       await publication.close();
     }
@@ -653,6 +700,7 @@ async function writeAdminPlugin(siteRoot: string): Promise<void> {
           component: "./admin.tsx",
           title: "Notes",
           dataService: "notes.list",
+          styles: "admin",
         },
         services: {
           "notes.list": {
@@ -704,12 +752,19 @@ async function writeAdminPlugin(siteRoot: string): Promise<void> {
     `
       export default function NotesAdmin(props: { data: { message: string } | null }) {
         return (
-          <div>
-            <h1>Notes admin</h1>
-            <p>{props.data?.message ?? "null data"}</p>
+          <div class="rounded-xl border border-zinc-800 p-4">
+            <h1 class="text-xl font-semibold">Notes admin</h1>
+            <p class="text-sm text-zinc-400">{props.data?.message ?? "null data"}</p>
           </div>
         );
       }
+    `,
+  );
+  await writeFile(
+    join(siteRoot, "plugins", "notes", "admin.css"),
+    `
+      @import "tailwindcss";
+      @source "./admin.tsx";
     `,
   );
   await writeFile(

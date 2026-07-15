@@ -90,6 +90,7 @@ export async function openPublication(options: {
     });
   const adminProgram = await compileAdminProgram({
     enabled: security.enabled,
+    siteRoot: options.root,
     plugins: program.pluginEntries,
   });
   const content = await buildContentSnapshot(program);

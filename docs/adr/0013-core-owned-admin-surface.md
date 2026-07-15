@@ -4,6 +4,8 @@
 
 插件可声明至多一个只在 admin surface 出现的浏览器组件（插件 admin island）。核心拥有路径、鉴权、SSR shell 与 Action 访问契约；插件不声明自定义 admin path，也不获得发布路由或主题 chrome 控制权。这是对 ADR-0003「插件无浏览器组件」的显式窄化：例外仅限受鉴权 admin surface，不授权插件注入发布页 UI。
 
+插件 admin 页可声明可选的 **styles** 入口（如 `"admin"` → 插件入口旁的 `admin.css`），与主题 `styles` 同形。核心在 admin 程序编译时用 `Bun.build` 构建，产出 `/_admin/assets/plugin-{id}-{hash}.css`，仅在对应插件 admin 页 SSR 时挂载；构建解析到 `bun-plugin-tailwind` 时自动启用。核心 admin shell（document / 登录 / 首页）自有 Tailwind 入口 `src/admin/core.css`，稳定路径 `/_admin/assets/core.css`（登录页无会话可取）。插件 admin 样式与 island 资源同鉴权边界：未登录不可读。
+
 未配置 admin token 时整个 `/_admin` 命名空间返回 404，且不构建 admin 资源。admin 启用时，非 loopback public origin 必须为 HTTPS；核心不信任转发头推导外部 origin。
 
 **残余风险**：admin 与发布页同 origin，同 origin XSS 可升级为已登录操作者的 admin 操作。cookie path 与 CSRF 不能形成 origin 隔离。V1 接受该风险并为 admin 响应设置严格 CSP；若未来要承载不可信发布脚本，必须把 admin 迁移到独立 origin。
