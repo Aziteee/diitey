@@ -1,3 +1,4 @@
+import "./src/preact-singleton.ts";
 import { resolve } from "node:path";
 import {
   ManagementCommandError,

@@ -261,6 +261,29 @@
     @apply bg-transparent p-0 text-sm;
   }
 
+  /* Shiki dual themes: token colors only; block surface stays .content pre. */
+  .content pre.shiki,
+  .content pre.shiki span {
+    color: var(--shiki-light);
+    font-style: var(--shiki-light-font-style);
+    font-weight: var(--shiki-light-font-weight);
+    text-decoration: var(--shiki-light-text-decoration);
+  }
+
+  .content pre.shiki span {
+    background-color: transparent;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .content pre.shiki,
+    .content pre.shiki span {
+      color: var(--shiki-dark);
+      font-style: var(--shiki-dark-font-style);
+      font-weight: var(--shiki-dark-font-weight);
+      text-decoration: var(--shiki-dark-text-decoration);
+    }
+  }
+
   .content img {
     @apply my-8 block h-auto max-w-full;
   }

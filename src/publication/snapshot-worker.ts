@@ -1,3 +1,4 @@
+import "../preact-singleton.ts";
 import type { BuiltIslands } from "../islands.ts";
 import type { BuiltThemeStyles } from "../styles.ts";
 import { buildContentSnapshot } from "./content-snapshot.ts";

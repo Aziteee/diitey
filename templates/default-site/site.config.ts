@@ -10,4 +10,13 @@ export default defineSite({
       postsPerPage: 10,
     },
   },
+  plugins: [
+    {
+      use: "./plugins/shiki/plugin.ts",
+      config: {
+        lightTheme: "vitesse-light",
+        darkTheme: "vitesse-dark",
+      },
+    },
+  ],
 });
