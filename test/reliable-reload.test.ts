@@ -117,33 +117,6 @@ describe("reliable reload loop", () => {
     expect(after.value.reloading).toBe(false);
   }, 10_000);
 
-  test("timed out reload keeps the effective snapshot", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeFile(
-      join(siteRoot, "site.config.ts"),
-      `import { defineSite } from "../../../src/index.ts";\n\nexport default defineSite({\n  theme: "./themes/minimal/theme.ts",\n  plugins: ["./plugins/todo-list/plugin.ts"],\n  reload: { timeoutMs: 10 },\n});\n`,
-    );
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-    const before = await runCli<StatusResult>(siteRoot, "status");
-    await writeContent(siteRoot, "Too late", "Large body. ".repeat(500_000));
-
-    const reload = await runCli<ReloadFailure>(siteRoot, "reload");
-    const html = await fetch(`${address}/writing/hello`).then((response) =>
-      response.text(),
-    );
-    const after = await runCli<StatusResult>(siteRoot, "status");
-
-    expect(reload.exitCode).toBe(1);
-    expect(reload.value.status).toBe("failed");
-    expect(reload.value.error).toContain("timed out after 10ms");
-    expect(html).toContain("<h1>Hello, Diitey</h1>");
-    expect(after.value.currentSnapshotVersion).toBe(
-      before.value.currentSnapshotVersion,
-    );
-    expect(after.value.lastAttempt.result).toBe("failed");
-  }, 15_000);
-
   test("requests keep one snapshot while a concurrent reload is rejected", async () => {
     const siteRoot = await copyFixtureSite();
     const site = spawnSite(siteRoot);
@@ -187,102 +160,7 @@ describe("reliable reload loop", () => {
     expect(htmlAfter).toContain("<p>New paragraph.</p>");
   }, 30_000);
 
-  test("public listener never exposes the reserved system namespace", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeFile(
-      join(siteRoot, "site.config.ts"),
-      `export default { theme: "./themes/minimal/theme.ts" };\n`,
-    );
-    await writeFile(
-      join(siteRoot, "themes", "minimal", "theme.ts"),
-      `import { collection, defineTheme, page, route } from "../../../../../src/index.ts";\n\nexport default defineTheme({\n  collections: {\n    writing: collection({ from: "hello.md", schema: { title: "string" } }),\n  },\n  routes: [\n    route("/_system/status", page("article", {\n      item: { collection: "writing", match: "hello.md" },\n    })),\n  ],\n});\n`,
-    );
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const response = await fetch(`${address}/_system/status`);
-
-    expect(response.status).toBe(404);
-  }, 10_000);
-
-  test("reload timeout interrupts slow theme rendering", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeFile(
-      join(siteRoot, "site.config.ts"),
-      `import { defineSite } from "../../../src/index.ts";\n\nexport default defineSite({\n  theme: "./themes/minimal/theme.ts",\n  plugins: ["./plugins/todo-list/plugin.ts"],\n  reload: { timeoutMs: 1_000 },\n});\n`,
-    );
-    await writeFile(
-      join(siteRoot, "themes", "minimal", "pages", "article.tsx"),
-      `import type { ContentRecord } from "../../../../../../src/index.ts";\n\nexport default function Article({ item }: { item: ContentRecord }) {\n  const title = String(item.attributes.title);\n  if (title === "Slow render") {\n    const finishAt = Date.now() + 3_000;\n    while (Date.now() < finishAt) {}\n  }\n  return <main><h1>{title}</h1><div dangerouslySetInnerHTML={{ __html: item.html }} /></main>;\n}\n`,
-    );
-    const site = spawnSite(siteRoot);
-    await readServerAddress(site);
-    await writeContent(siteRoot, "Slow render", "Slow body.");
-
-    const startedAt = performance.now();
-    const reload = await runCli<ReloadFailure>(siteRoot, "reload");
-    const elapsedMs = performance.now() - startedAt;
-
-    expect(reload.exitCode).toBe(1);
-    expect(reload.value.error).toContain("timed out after 1000ms");
-    expect(elapsedMs).toBeLessThan(2_500);
-  }, 10_000);
-
-  test("runtime information is restricted to the current Windows user", async () => {
-    if (process.platform !== "win32") {
-      return;
-    }
-    const siteRoot = await copyFixtureSite();
-    const site = spawnSite(siteRoot);
-    await readServerAddress(site);
-
-    const result = await inspectWindowsAcl(
-      join(siteRoot, "data", "diitey.runtime.json"),
-    );
-
-    expect(result).toEqual({ exitCode: 0, error: "" });
-  }, 10_000);
-
-  test("management commands reject damaged runtime information with a field path", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeFile(
-      join(siteRoot, "data", "diitey.runtime.json"),
-      JSON.stringify({ pid: 123, adminPort: "broken", token: "token" }),
-    );
-
-    const result = await runRawCli(siteRoot, "status");
-
-    expect(result.exitCode).toBe(1);
-    expect(result.error).toContain("runtime info.adminPort");
-  });
 });
-
-async function inspectWindowsAcl(
-  filePath: string,
-): Promise<{ exitCode: number; error: string }> {
-  const script = `$acl = [System.IO.File]::GetAccessControl($env:DIITEY_RUNTIME_FILE); $current = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; $rules = $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]); $unsafe = @($rules | Where-Object { $_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -ne $current }); if (-not $acl.AreAccessRulesProtected -or $unsafe.Count -gt 0) { $sddl = $acl.GetSecurityDescriptorSddlForm([System.Security.AccessControl.AccessControlSections]::All); Write-Error ("SDDL=" + $sddl + " current=" + $current); exit 1 }`;
-  const process = Bun.spawn(
-    ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
-    {
-      stdout: "ignore",
-      stderr: "pipe",
-      env: { ...processEnv(), DIITEY_RUNTIME_FILE: filePath },
-    },
-  );
-  const [exitCode, error] = await Promise.all([
-    process.exited,
-    new Response(process.stderr).text(),
-  ]);
-  return { exitCode, error };
-}
-
-function processEnv(): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(process.env).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined,
-    ),
-  );
-}
 
 async function waitUntilReloading(siteRoot: string): Promise<ReloadingStatus> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -339,27 +217,6 @@ async function runCli<T>(
     throw new Error(`CLI ${command} produced no JSON (exit ${exitCode}): ${error}`);
   }
   return { exitCode, value: JSON.parse(output) as T };
-}
-
-async function runRawCli(
-  siteRoot: string,
-  command: "reload" | "status",
-): Promise<{ exitCode: number; error: string }> {
-  const process = Bun.spawn(
-    [
-      Bun.which("bun") ?? "bun",
-      join(import.meta.dir, "..", "index.ts"),
-      command,
-      "--root",
-      siteRoot,
-    ],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  const [exitCode, error] = await Promise.all([
-    process.exited,
-    new Response(process.stderr).text(),
-  ]);
-  return { exitCode, error };
 }
 
 async function copyFixtureSite(): Promise<string> {

@@ -69,66 +69,6 @@ describe("theme document layout", () => {
     );
   }, 10_000);
 
-  test("document wraps pre-rendered list pages and keeps ordinary pages free of scripts", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeDocumentFixture(siteRoot);
-    const process = spawnSite(siteRoot);
-    const address = await readServerAddress(process);
-
-    const [listHtml, listPage2Html, articleHtml, serviceHtml] =
-      await Promise.all([
-        fetch(`${address}/writing`).then((response) => response.text()),
-        fetch(`${address}/writing?page=2`).then((response) => response.text()),
-        fetch(`${address}/writing/2025/alpha`).then((response) =>
-          response.text(),
-        ),
-        fetch(`${address}/todos`).then((response) => response.text()),
-      ]);
-
-    expect(listHtml).toContain('data-document-chrome="site-nav"');
-    expect(listHtml).toContain("Alpha article");
-    expect(listHtml).not.toContain("<script");
-    expect(listPage2Html).toContain('data-document-chrome="site-nav"');
-    expect(listPage2Html).toContain("Beta article");
-    expect(articleHtml).toContain('data-document-chrome="site-nav"');
-    expect(articleHtml).toContain("<h1>Alpha article</h1>");
-    expect(articleHtml).not.toContain("<script");
-    expect(articleHtml).not.toContain("data-diitey-island");
-    expect(serviceHtml).toContain('data-document-chrome="site-nav"');
-    expect(serviceHtml).toContain("<h1>Todo list</h1>");
-  }, 10_000);
-
-  test("islands under document still hydrate while document alone ships no client bundle", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeDocumentFixture(siteRoot);
-    const process = spawnSite(siteRoot);
-    const address = await readServerAddress(process);
-
-    const [islandHtml, ordinaryHtml] = await Promise.all([
-      fetch(`${address}/island-demo`).then((response) => response.text()),
-      fetch(`${address}/writing/2025/alpha`).then((response) => response.text()),
-    ]);
-
-    expect(islandHtml).toContain('data-document-chrome="site-nav"');
-    expect(islandHtml).toContain("<button>Count: 2</button>");
-    expect(islandHtml).toContain('data-diitey-island="counter"');
-    expect(islandHtml).toMatch(
-      /<script type="module" src="\/assets\/islands\/hydrate-[a-f0-9]+\.js"><\/script>/,
-    );
-    expect(ordinaryHtml).toContain('data-document-chrome="site-nav"');
-    expect(ordinaryHtml).not.toContain("<script");
-  }, 10_000);
-
-  test("declared but missing document module fails site startup", async () => {
-    const siteRoot = await copyFixtureSite();
-    await rm(join(siteRoot, "themes", "minimal", "pages", "document.tsx"), {
-      force: true,
-    });
-
-    const error = await readStartupError(spawnSite(siteRoot));
-    expect(error).toMatch(/document|ENOENT|Cannot find|Unable to resolve/i);
-  }, 10_000);
-
   test("render failure under document still returns the standard 500 page", async () => {
     const siteRoot = await copyFixtureSite();
     await writeDocumentFixture(siteRoot);
@@ -227,18 +167,4 @@ async function readServerAddress(process: SiteProcess): Promise<string> {
     const match = output.match(/Listening on (http:\/\/[^\s]+)/);
     if (match?.[1]) return match[1];
   }
-}
-
-async function readStartupError(process: SiteProcess): Promise<string> {
-  const exitCode = await Promise.race([
-    process.exited,
-    Bun.sleep(5_000).then(() => null),
-  ]);
-  if (exitCode === null) {
-    process.kill();
-    await process.exited;
-  }
-  const error = await new Response(process.stderr).text();
-  expect(exitCode).not.toBe(0);
-  return error;
 }

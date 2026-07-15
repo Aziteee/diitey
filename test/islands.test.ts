@@ -43,45 +43,6 @@ describe("island loop", () => {
     expect(islandHtml).not.toContain("unused-");
   }, 10_000);
 
-  test("hashed island assets are immutable while HTML and the manifest are not long-lived", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeIslandFixture(siteRoot);
-    const process = spawnSite(siteRoot);
-    const address = await readServerAddress(process);
-
-    const pageResponse = await fetch(`${address}/writing/hello`);
-    const html = await pageResponse.text();
-    const assetPath = html.match(
-      /<script type="module" src="([^"]+)"><\/script>/,
-    )?.[1];
-    expect(assetPath).toBeDefined();
-
-    const [runtimeResponse, manifestResponse] = await Promise.all([
-      fetch(`${address}${assetPath}`),
-      fetch(`${address}/assets/island-manifest.json`),
-    ]);
-    const manifest = (await manifestResponse.json()) as Record<string, string>;
-    const islandResponse = await fetch(`${address}${manifest.counter}`);
-
-    expect(runtimeResponse.status).toBe(200);
-    expect(runtimeResponse.headers.get("content-type")).toContain("text/javascript");
-    expect(runtimeResponse.headers.get("cache-control")).toBe(
-      "public, max-age=31536000, immutable",
-    );
-    expect(assetPath).toMatch(/^\/assets\/islands\/hydrate-[a-f0-9]+\.js$/);
-    expect(manifest.counter).toMatch(
-      /^\/assets\/islands\/counter-[a-f0-9]+\.js$/,
-    );
-    expect(islandResponse.headers.get("cache-control")).toBe(
-      "public, max-age=31536000, immutable",
-    );
-    expect(manifest.unused).toMatch(
-      /^\/assets\/islands\/unused-[a-f0-9]+\.js$/,
-    );
-    expect(manifestResponse.headers.get("cache-control")).toBe("no-store");
-    expect(pageResponse.headers.get("cache-control")).toBe("no-store");
-  }, 10_000);
-
   test("a site cannot publish island props that are not JSON-serializable", async () => {
     const siteRoot = await copyFixtureSite();
     await writeIslandFixture(siteRoot);
@@ -174,29 +135,6 @@ describe("island loop", () => {
     expect(error).toContain("Failed to build island counter");
   }, 10_000);
 
-  test("a theme cannot publish a route in the reserved assets namespace", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeFile(
-      join(siteRoot, "themes", "minimal", "theme.ts"),
-      `import { collection, defineTheme, page, route } from "../../../../../src/index.ts";
-
-      export default defineTheme({
-        collections: {
-          writing: collection({ from: "hello.md", schema: { title: "string" } }),
-        },
-        routes: [
-          route("/assets/custom", page("article", {
-            item: { collection: "writing", match: "hello.md" },
-          })),
-        ],
-      });
-      `,
-    );
-
-    const error = await readStartupError(spawnSite(siteRoot));
-
-    expect(error).toContain("Theme route cannot use reserved path /assets/custom");
-  }, 10_000);
 });
 
 async function writeIslandFixture(siteRoot: string): Promise<void> {

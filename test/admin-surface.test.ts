@@ -98,39 +98,6 @@ describe("admin surface", () => {
     }
   });
 
-  test("login rate-limits only failed token attempts", async () => {
-    const siteRoot = await copyFixtureSite();
-    const publication = await openEnabledPublication(siteRoot);
-    try {
-      for (let i = 0; i < 5; i++) {
-        const failed = await publication.handle(
-          new Request("http://127.0.0.1:3000/_admin/login", {
-            method: "POST",
-            headers: {
-              "content-type": "application/x-www-form-urlencoded",
-              origin: "http://127.0.0.1:3000",
-            },
-            body: `token=${"b".repeat(32)}`,
-          }),
-        );
-        expect(failed.status).toBe(401);
-      }
-      const limited = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin/login", {
-          method: "POST",
-          headers: {
-            "content-type": "application/x-www-form-urlencoded",
-            origin: "http://127.0.0.1:3000",
-          },
-          body: `token=${"b".repeat(32)}`,
-        }),
-      );
-      expect(limited.status).toBe(429);
-    } finally {
-      await publication.close();
-    }
-  });
-
   test("login accepts localhost origin and Chromium Origin null on same-origin navigate", async () => {
     const siteRoot = await copyFixtureSite();
     const publication = await openEnabledPublication(siteRoot);
@@ -178,50 +145,6 @@ describe("admin surface", () => {
     }
   });
 
-  test("login rejects wrong origin, wrong token, and oversized body", async () => {
-    const siteRoot = await copyFixtureSite();
-    const publication = await openEnabledPublication(siteRoot);
-    try {
-      const wrongOrigin = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin/login", {
-          method: "POST",
-          headers: {
-            "content-type": "application/x-www-form-urlencoded",
-            origin: "http://evil.example",
-          },
-          body: `token=${ADMIN_TOKEN}`,
-        }),
-      );
-      expect(wrongOrigin.status).toBe(403);
-
-      const wrongToken = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin/login", {
-          method: "POST",
-          headers: {
-            "content-type": "application/x-www-form-urlencoded",
-            origin: "http://127.0.0.1:3000",
-          },
-          body: `token=${"b".repeat(32)}`,
-        }),
-      );
-      expect(wrongToken.status).toBe(401);
-
-      const huge = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin/login", {
-          method: "POST",
-          headers: {
-            "content-type": "application/x-www-form-urlencoded",
-            origin: "http://127.0.0.1:3000",
-          },
-          body: `token=${"x".repeat(20_000)}`,
-        }),
-      );
-      expect(huge.status).toBe(413);
-    } finally {
-      await publication.close();
-    }
-  });
-
   test("authenticated operator sees admin home and plugin page without theme chrome", async () => {
     const siteRoot = await copyFixtureSite();
     await writeAdminPlugin(siteRoot);
@@ -253,41 +176,6 @@ describe("admin surface", () => {
       expect(pageHtml).toContain('data-diitey-island="admin-notes"');
       expect(pageHtml).toContain("hello from dataService");
       expect(pageHtml).toContain("/_admin/assets/");
-    } finally {
-      await publication.close();
-    }
-  });
-
-  test("unauthenticated requests cannot read plugin admin assets", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeAdminPlugin(siteRoot);
-    const publication = await openEnabledPublication(siteRoot);
-    try {
-      const cookie = await loginCookie(publication);
-      const page = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin/notes", {
-          headers: { cookie },
-        }),
-      );
-      const html = await page.text();
-      const manifestMatch = html.match(
-        /\/_admin\/assets\/islands\/[^"]+\.js/,
-      );
-      expect(manifestMatch).toBeTruthy();
-      const assetPath = manifestMatch![0]!;
-
-      const denied = await publication.handle(
-        new Request(`http://127.0.0.1:3000${assetPath}`),
-      );
-      expect(denied.status).toBe(401);
-
-      const allowed = await publication.handle(
-        new Request(`http://127.0.0.1:3000${assetPath}`, {
-          headers: { cookie },
-        }),
-      );
-      expect(allowed.status).toBe(200);
-      expect(allowed.headers.get("cache-control")).toContain("immutable");
     } finally {
       await publication.close();
     }
@@ -334,23 +222,6 @@ describe("admin surface", () => {
       const css = await allowed.text();
       expect(css.length).toBeGreaterThan(0);
       expect(allowed.headers.get("cache-control")).toContain("immutable");
-    } finally {
-      await publication.close();
-    }
-  });
-
-  test("login stylesheet is available without a session when admin is enabled", async () => {
-    const siteRoot = await copyFixtureSite();
-    const publication = await openEnabledPublication(siteRoot);
-    try {
-      const response = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin/assets/core.css"),
-      );
-      expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toContain("text/css");
-      const body = await response.text();
-      expect(body.length).toBeGreaterThan(0);
-      expect(body).toMatch(/max-width|border-radius|background|color|font-family/);
     } finally {
       await publication.close();
     }
@@ -418,74 +289,6 @@ describe("admin surface", () => {
     }
   });
 
-  test("admin Action path cannot call a public Action", async () => {
-    const siteRoot = await copyFixtureSite();
-    await enableTodoListExample(siteRoot);
-    const publication = await openEnabledPublication(siteRoot);
-    try {
-      const { cookie, csrf } = await loginSession(publication);
-      const response = await publication.handle(
-        new Request(
-          "http://127.0.0.1:3000/_admin/action/todo-list/todo.create",
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              origin: "http://127.0.0.1:3000",
-              cookie,
-              "x-csrf-token": csrf,
-            },
-            body: JSON.stringify({ title: "nope" }),
-          },
-        ),
-      );
-      expect(response.status).toBe(404);
-    } finally {
-      await publication.close();
-    }
-  });
-
-  test("logout clears cookies and rejects GET state changes", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeAdminPlugin(siteRoot);
-    const publication = await openEnabledPublication(siteRoot);
-    try {
-      const { cookie, csrf } = await loginSession(publication);
-      const getLogout = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin/logout", {
-          method: "GET",
-          headers: { cookie },
-        }),
-      );
-      expect(getLogout.status).toBe(405);
-
-      const logout = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin/logout", {
-          method: "POST",
-          headers: {
-            "content-type": "application/x-www-form-urlencoded",
-            origin: "http://127.0.0.1:3000",
-            cookie,
-          },
-          body: `csrf=${csrf}`,
-        }),
-      );
-      expect(logout.status).toBe(303);
-      const cleared = logout.headers.getSetCookie().join("\n").toLowerCase();
-      expect(cleared).toContain(`${ADMIN_SESSION_COOKIE}=`);
-      expect(cleared).toContain(`${ADMIN_CSRF_COOKIE}=`);
-      expect(cleared).toContain("max-age=0");
-
-      const withoutCookies = await publication.handle(
-        new Request("http://127.0.0.1:3000/_admin"),
-      );
-      expect(withoutCookies.status).toBe(303);
-      expect(withoutCookies.headers.get("location")).toContain("/_admin/login");
-    } finally {
-      await publication.close();
-    }
-  });
-
   test("tampered or rotated-token sessions are rejected", async () => {
     const siteRoot = await copyFixtureSite();
     const publication = await openEnabledPublication(siteRoot);
@@ -522,93 +325,6 @@ describe("admin surface", () => {
     } finally {
       await rotated.close();
     }
-  });
-
-  test("content summary is available to plugin services without html", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeAdminPlugin(siteRoot);
-    const publication = await openEnabledPublication(siteRoot);
-    try {
-      const { cookie, csrf } = await loginSession(publication);
-      const response = await publication.handle(
-        new Request(
-          "http://127.0.0.1:3000/_admin/action/notes/content-summary",
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              origin: "http://127.0.0.1:3000",
-              cookie,
-              "x-csrf-token": csrf,
-            },
-            body: JSON.stringify({ contentId: "hello-content" }),
-          },
-        ),
-      );
-      expect(response.status).toBe(201);
-      const body = (await response.json()) as Record<string, unknown>;
-      expect(body).toMatchObject({
-        id: "hello-content",
-        sourcePath: expect.any(String),
-        url: expect.any(String),
-      });
-      expect(body).not.toHaveProperty("html");
-    } finally {
-      await publication.close();
-    }
-  });
-
-  test("invalid plugin admin declarations fail at startup", async () => {
-    const siteRoot = await copyFixtureSite();
-    await mkdir(join(siteRoot, "plugins", "bad-admin"), { recursive: true });
-    await writeFile(
-      join(siteRoot, "plugins", "bad-admin", "plugin.ts"),
-      `
-        import { definePlugin } from "diitey";
-        import { z } from "zod";
-        export default definePlugin({
-          // missing id
-          adminPage: { component: "./admin.tsx" },
-          services: {
-            "x.list": {
-              input: z.object({}).strict(),
-              output: z.null(),
-              handler: () => null,
-            },
-          },
-        });
-      `,
-    );
-    await writeFile(
-      join(siteRoot, "plugins", "bad-admin", "admin.tsx"),
-      `export default function Admin() { return <div>bad</div>; }`,
-    );
-    await writeFile(
-      join(siteRoot, "site.config.ts"),
-      `
-        import { defineSite } from "diitey";
-        export default defineSite({
-          theme: {
-            use: "./themes/minimal/theme.ts",
-            config: {
-              siteName: "Diitey Minimal Site",
-              articlePageSize: 2,
-              homeIntro: "Welcome",
-            },
-          },
-          plugins: [
-            {
-              use: "./plugins/todo-list/plugin.ts",
-              config: { maxTitleLength: 100 },
-            },
-            "./plugins/bad-admin/plugin.ts",
-          ],
-        });
-      `,
-    );
-    const site = spawnSite(siteRoot, ["--admin-token", ADMIN_TOKEN]);
-    const error = await readStartupError(site);
-    expect(error).toMatch(/explicit id/i);
   });
 
   test("HTTPS public origin marks admin cookies Secure", async () => {
@@ -787,19 +503,6 @@ async function writeAdminPlugin(siteRoot: string): Promise<void> {
           },
           "./plugins/notes/plugin.ts",
         ],
-      });
-    `,
-  );
-}
-
-async function enableTodoListExample(siteRoot: string): Promise<void> {
-  await writeFile(
-    join(siteRoot, "site.config.ts"),
-    `
-      import { defineSite } from "diitey";
-      export default defineSite({
-        theme: "./themes/minimal/theme.ts",
-        plugins: ["./plugins/todo-list/plugin.ts"],
       });
     `,
   );

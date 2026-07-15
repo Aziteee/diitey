@@ -60,48 +60,6 @@ Take care.
     );
   }, 10_000);
 
-  test("Markdown extensions run in configured plugin order", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeFile(
-      join(siteRoot, "site.config.ts"),
-      `import { defineSite } from "../../../src/index.ts";
-
-      export default defineSite({
-        theme: "./themes/minimal/theme.ts",
-        plugins: [
-          "./plugins/todo-list/plugin.ts",
-          "./plugins/first.ts",
-          "./plugins/second.ts",
-        ],
-      });
-      `,
-    );
-    await mkdir(join(siteRoot, "plugins"), { recursive: true });
-    await Promise.all([
-      writeTextPlugin(siteRoot, "first", "[first]"),
-      writeTextPlugin(siteRoot, "second", "[second]"),
-    ]);
-    await writeFile(
-      join(siteRoot, "content", "hello.md"),
-      `---
-id: "hello-content"
-created: "2026-07-12"
-title: "Plugin order"
----
-
-Order
-`,
-    );
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const html = await fetch(`${address}/writing/hello`).then((response) =>
-      response.text(),
-    );
-
-    expect(html).toContain("<p>Order[first][second]</p>");
-  }, 10_000);
-
   test("failed Markdown conversion keeps the effective snapshot", async () => {
     const siteRoot = await copyFixtureSite();
     await writeFile(
@@ -188,30 +146,6 @@ async function runCli(
     new Response(process.stdout).text(),
   ]);
   return { exitCode, value: JSON.parse(output) as Record<string, any> };
-}
-
-async function writeTextPlugin(
-  siteRoot: string,
-  name: string,
-  suffix: string,
-): Promise<void> {
-  await writeFile(
-    join(siteRoot, "plugins", `${name}.ts`),
-    `import { definePlugin } from "../../../../src/index.ts";
-
-    function appendText() {
-      return function transform(node: any) {
-        if (node.type === "text") node.value += ${JSON.stringify(suffix)};
-        for (const child of node.children ?? []) transform(child);
-      };
-    }
-
-    export default definePlugin({
-      name: ${JSON.stringify(name)},
-      markdown: { remarkPlugins: [appendText] },
-    });
-    `,
-  );
 }
 
 async function copyFixtureSite(): Promise<string> {

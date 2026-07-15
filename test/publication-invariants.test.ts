@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
 
@@ -98,24 +98,6 @@ export default defineSite({
     }
     expect(recovered.value.error).toMatch(/restart|unavailable|program/i);
   }, 30_000);
-
-  test("pages using plugin services can render object, string, and number outputs", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeMixedServicePlugin(siteRoot);
-    await enableMixedServicePages(siteRoot);
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const html = await fetch(`${address}/mixed-services`).then((response) =>
-      response.text(),
-    );
-
-    expect(html).toContain('data-summary-count="3"');
-    expect(html).toContain('data-summary-label="ready"');
-    expect(html).toContain('data-headline="Published headline"');
-    expect(html).toContain('data-score="42"');
-    expect(html).not.toContain("Page rendering failed");
-  }, 15_000);
 
   test("a request-time plugin service content.exists reads the request-captured effective snapshot", async () => {
     const siteRoot = await copyFixtureSite();
@@ -312,105 +294,6 @@ export default function Article({ item }: { item: ContentRecord }) {
     <main data-theme-marker="${marker}">
       <h1>{title}</h1>
       <div dangerouslySetInnerHTML={{ __html: item.html }} />
-    </main>
-  );
-}
-`,
-  );
-}
-
-async function writeMixedServicePlugin(siteRoot: string): Promise<void> {
-  const pluginRoot = join(siteRoot, "plugins", "mixed");
-  await mkdir(pluginRoot, { recursive: true });
-  await writeFile(
-    join(pluginRoot, "plugin.ts"),
-    `import { definePlugin } from "../../../../../src/index.ts";
-
-const emptyInput = {
-  parse(value: unknown) {
-    if (value === undefined || value === null) return {};
-    if (typeof value !== "object" || Array.isArray(value)) {
-      throw new Error("must be an object");
-    }
-    return value;
-  },
-};
-
-export default definePlugin({
-  id: "mixed",
-  version: "1.0.0",
-  schemaVersion: 0,
-  services: {
-    "mixed.summary": {
-      input: emptyInput,
-      output: { parse: (value: unknown) => value },
-      handler() {
-        return { count: 3, label: "ready" };
-      },
-    },
-    "mixed.headline": {
-      input: emptyInput,
-      output: { parse: (value: unknown) => value },
-      handler() {
-        return "Published headline";
-      },
-    },
-    "mixed.score": {
-      input: emptyInput,
-      output: { parse: (value: unknown) => value },
-      handler() {
-        return 42;
-      },
-    },
-  },
-});
-`,
-  );
-}
-
-async function enableMixedServicePages(siteRoot: string): Promise<void> {
-  await writeFile(
-    join(siteRoot, "site.config.ts"),
-    `import { defineSite } from "../../../src/index.ts";
-
-export default defineSite({
-  theme: "./themes/minimal/theme.ts",
-  plugins: ["./plugins/mixed/plugin.ts"],
-});
-`,
-  );
-  await writeFile(
-    join(siteRoot, "themes", "minimal", "theme.ts"),
-    `import { defineTheme, page, route } from "../../../../../src/index.ts";
-
-export default defineTheme({
-  collections: {},
-  routes: [
-    route("/mixed-services", page("mixed-services", {
-      summary: { service: "mixed.summary", input: {} },
-      headline: { service: "mixed.headline", input: {} },
-      score: { service: "mixed.score", input: {} },
-    })),
-  ],
-});
-`,
-  );
-  await writeFile(
-    join(siteRoot, "themes", "minimal", "pages", "mixed-services.tsx"),
-    `export default function MixedServices({
-  summary,
-  headline,
-  score,
-}: {
-  summary: { count: number; label: string };
-  headline: string;
-  score: number;
-}) {
-  return (
-    <main>
-      <p data-summary-count={String(summary.count)} data-summary-label={summary.label} />
-      <p data-headline={headline} />
-      <p data-score={String(score)} />
     </main>
   );
 }

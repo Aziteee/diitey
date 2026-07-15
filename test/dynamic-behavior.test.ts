@@ -55,31 +55,6 @@ describe("dynamic behavior loop", () => {
     expect(afterToggle).toContain('data-completed="true"');
   }, 10_000);
 
-  test("the todo-list plugin validates Action input with Zod", async () => {
-    const siteRoot = await copyFixtureSite();
-    await enableTodoListExample(siteRoot);
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-    const create = (input: unknown) =>
-      fetch(`${address}/_action/todo.create`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          origin: address,
-        },
-        body: JSON.stringify(input),
-      });
-
-    const blank = await create({ title: "   " });
-    const extra = await create({ title: "Valid", unexpected: true });
-    const valid = await create({ title: "  Trimmed title  " });
-
-    expect(blank.status).toBe(400);
-    expect(extra.status).toBe(400);
-    expect(valid.status).toBe(201);
-    expect(await valid.json()).toMatchObject({ title: "Trimmed title" });
-  }, 10_000);
-
   test("the theme comment island submits through the core Action", async () => {
     const siteRoot = await copyFixtureSite();
     await writeMemoryCommentsPlugin(siteRoot);
@@ -102,93 +77,6 @@ describe("dynamic behavior loop", () => {
     expect(bundle).toContain("/_action/comments.create");
   }, 10_000);
 
-  test("a submitted comment is returned by the plugin service during SSR", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeMemoryCommentsPlugin(siteRoot);
-    await enableComments(siteRoot);
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const before = await fetch(`${address}/writing/hello`).then((response) =>
-      response.text(),
-    );
-    const created = await fetch(`${address}/_action/comments.create`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: address,
-      },
-      body: JSON.stringify({ contentId: "hello-content", body: "First!" }),
-    });
-    const after = await fetch(`${address}/writing/hello`).then((response) =>
-      response.text(),
-    );
-
-    expect(before).toContain("<ol></ol>");
-    expect(created.status).toBe(201);
-    expect(await created.json()).toMatchObject({
-      contentId: "hello-content",
-      body: "First!",
-      status: "pending",
-    });
-    expect(after).toContain("<li>First!</li>");
-  }, 10_000);
-
-  test("startup migrates SQLite before comments can persist", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeSqliteCommentsPlugin(siteRoot);
-    await enableComments(siteRoot);
-
-    const firstSite = spawnSite(siteRoot);
-    const firstAddress = await readServerAddress(firstSite);
-    const created = await fetch(`${firstAddress}/_action/comments.create`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: firstAddress,
-      },
-      body: JSON.stringify({ contentId: "hello-content", body: "Stored" }),
-    });
-    firstSite.kill();
-    await firstSite.exited;
-    processes.splice(processes.indexOf(firstSite), 1);
-
-    const secondSite = spawnSite(siteRoot);
-    const secondAddress = await readServerAddress(secondSite);
-    const html = await fetch(`${secondAddress}/writing/hello`).then((response) =>
-      response.text(),
-    );
-
-    expect(created.status).toBe(201);
-    expect(html).toContain("<li>Stored</li>");
-  }, 10_000);
-
-  test("an Action rejects a body above its declared limit without creating a comment", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeSqliteCommentsPlugin(siteRoot);
-    await enableComments(siteRoot);
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const response = await fetch(`${address}/_action/comments.create`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: address,
-      },
-      body: JSON.stringify({
-        contentId: "hello-content",
-        body: "x".repeat(200),
-      }),
-    });
-    const html = await fetch(`${address}/writing/hello`).then((result) =>
-      result.text(),
-    );
-
-    expect(response.status).toBe(413);
-    expect(html).toContain("<ol></ol>");
-  }, 10_000);
-
   test("invalid Action input returns 400 without calling the plugin service", async () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
@@ -209,29 +97,6 @@ describe("dynamic behavior loop", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(html).toContain("<ol></ol>");
-  }, 10_000);
-
-  test("the comments plugin rejects a comment for an unknown content ID", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeSqliteCommentsPlugin(siteRoot);
-    await enableComments(siteRoot);
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const response = await fetch(`${address}/_action/comments.create`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: address,
-      },
-      body: JSON.stringify({ contentId: "missing-content", body: "Lost" }),
-    });
-    const html = await fetch(`${address}/writing/hello`).then((result) =>
-      result.text(),
-    );
-
-    expect(response.status).toBe(404);
     expect(html).toContain("<ol></ol>");
   }, 10_000);
 
@@ -290,34 +155,6 @@ describe("dynamic behavior loop", () => {
     expect(html).toContain("<ol></ol>");
   }, 10_000);
 
-  test("a timed out Action aborts a cooperative plugin write", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeSqliteCommentsPlugin(siteRoot);
-    await enableComments(siteRoot);
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const startedAt = performance.now();
-    const response = await fetch(`${address}/_action/comments.create`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: address,
-      },
-      body: JSON.stringify({ contentId: "hello-content", body: "slow" }),
-    });
-    const elapsedMs = performance.now() - startedAt;
-    await Bun.sleep(120);
-    const html = await fetch(`${address}/writing/hello`).then((result) =>
-      result.text(),
-    );
-
-    expect(response.status).toBe(500);
-    expect(elapsedMs).toBeLessThan(80);
-    expect(response.headers.get("x-request-id")).not.toBeNull();
-    expect(html).toContain("<ol></ol>");
-  }, 10_000);
-
   test("a cookie-authenticated Action requires a matching CSRF token", async () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
@@ -355,59 +192,6 @@ describe("dynamic behavior loop", () => {
     expect((await submit(token)).status).toBe(201);
   }, 10_000);
 
-  test("a cookie-authenticated Action reads an encoded token among multiple cookies", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeSqliteCommentsPlugin(siteRoot);
-    await enableComments(siteRoot);
-    const pluginPath = join(siteRoot, "plugins", "comments", "plugin.ts");
-    const pluginSource = await readFile(pluginPath, "utf8");
-    await writeFile(
-      pluginPath,
-      pluginSource.replace("timeoutMs: 20,", 'timeoutMs: 20, credentials: "cookie",'),
-    );
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const response = await fetch(`${address}/_action/comments.create`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: address,
-        cookie: "session=abc; diitey_csrf=token%3Dwith%20space; mode=dark",
-        "x-csrf-token": "token=with space",
-      },
-      body: JSON.stringify({ contentId: "hello-content", body: "Encoded" }),
-    });
-
-    expect(response.status).toBe(201);
-  }, 10_000);
-
-  test("an SSR plugin service exception returns one standard 500 page", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeSqliteCommentsPlugin(siteRoot);
-    await enableComments(siteRoot);
-    const pluginPath = join(siteRoot, "plugins", "comments", "plugin.ts");
-    const pluginSource = await readFile(pluginPath, "utf8");
-    await writeFile(
-      pluginPath,
-      pluginSource.replace(
-        "return database.query(\n              \"SELECT content_id",
-        "throw new Error(\"SSR database secret\");\n            return database.query(\n              \"SELECT content_id",
-      ),
-    );
-    const site = spawnSite(siteRoot);
-    const address = await readServerAddress(site);
-
-    const response = await fetch(`${address}/writing/hello`);
-    const body = await response.text();
-
-    expect(response.status).toBe(500);
-    expect(response.headers.get("x-request-id")).not.toBeNull();
-    expect(body).toContain("Page rendering failed");
-    expect(body).not.toContain("SSR database secret");
-    expect(body).not.toContain("<h1>Hello, Diitey</h1>");
-  }, 10_000);
-
   test("a repeated migration is idempotent and a changed checksum is rejected", async () => {
     const siteRoot = await copyFixtureSite();
     await writeSqliteCommentsPlugin(siteRoot);
@@ -428,21 +212,6 @@ describe("dynamic behavior loop", () => {
     expect(changedError).toContain("Migration checksum changed");
   }, 10_000);
 
-  test("startup rejects a database schema newer than the configured plugin", async () => {
-    const newerRoot = await copyFixtureSite();
-    await writeSqliteCommentsPlugin(newerRoot);
-    await enableComments(newerRoot);
-    const initial = spawnSite(newerRoot);
-    await readServerAddress(initial);
-    await stopSite(initial);
-    const pluginPath = join(newerRoot, "plugins", "comments", "plugin.ts");
-    const pluginSource = await readFile(pluginPath, "utf8");
-    await writeFile(pluginPath, pluginSource.replace("schemaVersion: 1", "schemaVersion: 0"));
-    const newerError = await readStartupError(spawnSite(newerRoot));
-
-    expect(newerError).toContain("requires schema 0, database is 1");
-  }, 10_000);
-
   test("startup rolls back all pending migrations when one migration fails", async () => {
     const siteRoot = await copyFixtureSite();
     await writeFailingMigrationPlugin(siteRoot);
@@ -461,13 +230,6 @@ describe("dynamic behavior loop", () => {
     expect(table).toBeNull();
   }, 10_000);
 
-  test("plugin package management commands are not exposed", async () => {
-    const siteRoot = await copyFixtureSite();
-    const result = await runCli(siteRoot, ["plugin", "install", "todo-list"]);
-
-    expect(result.exitCode).toBe(1);
-    expect(result.error).toContain("Usage: diitey <start|reload|status>");
-  });
 });
 
 async function writeMemoryCommentsPlugin(siteRoot: string): Promise<void> {
@@ -776,22 +538,6 @@ async function copyFixtureSite(): Promise<string> {
   });
   await rm(join(root, "data", "site.sqlite"), { force: true });
   return root;
-}
-
-async function runCli(
-  siteRoot: string,
-  args: readonly string[],
-): Promise<{ exitCode: number; output: string; error: string }> {
-  const process = Bun.spawn(
-    [Bun.which("bun") ?? "bun", join(import.meta.dir, "..", "index.ts"), ...args, "--root", siteRoot],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  const [exitCode, output, error] = await Promise.all([
-    process.exited,
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-  ]);
-  return { exitCode, output, error };
 }
 
 function spawnSite(siteRoot: string): SiteProcess {

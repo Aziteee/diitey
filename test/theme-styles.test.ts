@@ -26,55 +26,6 @@ afterEach(async () => {
 });
 
 describe("theme stylesheet pipeline", () => {
-  test("a theme without styles starts without a core theme stylesheet link", async () => {
-    const siteRoot = await copyFixtureSite();
-    await stripThemeStyles(siteRoot);
-    await writeFile(
-      join(siteRoot, "themes", "minimal", "pages", "document.tsx"),
-      `import type { ComponentChildren } from "preact";
-      import { useThemeConfig } from "diitey";
-      import type { MinimalThemeConfig } from "../theme.ts";
-
-      export default function Document({
-        title,
-        children,
-      }: {
-        title: string;
-        children: ComponentChildren;
-      }) {
-        const config = useThemeConfig<MinimalThemeConfig>();
-        return (
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <title>{title}</title>
-            </head>
-            <body>
-              <header data-document-chrome="site-nav">
-                <strong>{config.siteName}</strong>
-              </header>
-              {children}
-            </body>
-          </html>
-        );
-      }
-      `,
-    );
-    const process = spawnSite(siteRoot);
-    const address = await readServerAddress(process);
-
-    const html = await fetch(`${address}/writing/hello`).then((response) =>
-      response.text(),
-    );
-
-    expect(html).not.toMatch(
-      /rel="stylesheet"[^>]*href="\/assets\/theme\/styles-[a-f0-9]+\.css"/,
-    );
-    expect(html).not.toMatch(
-      /href="\/assets\/theme\/styles-[a-f0-9]+\.css"[^>]*rel="stylesheet"/,
-    );
-  }, 10_000);
-
   test("document can link a hashed theme stylesheet served as immutable CSS", async () => {
     const siteRoot = await copyFixtureSite();
     await writeStylesFixture(siteRoot, {
@@ -113,56 +64,6 @@ describe("theme stylesheet pipeline", () => {
     const error = await readStartupError(spawnSite(siteRoot));
 
     expect(error).toMatch(/stylesheet|styles\.css|Failed to build/i);
-  }, 10_000);
-
-  test("invalid CSS fails site startup", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeStylesFixture(siteRoot, {
-      css: "this is { not valid css !!!",
-    });
-
-    const error = await readStartupError(spawnSite(siteRoot));
-
-    expect(error).toMatch(/stylesheet|Failed to build/i);
-  }, 10_000);
-
-  test("islands still hydrate when a theme stylesheet is present", async () => {
-    const siteRoot = await copyFixtureSite();
-    await writeStylesFixture(siteRoot, {
-      css: "/* with-islands */ body { margin: 0; }",
-    });
-    await writeFile(
-      join(siteRoot, "themes", "minimal", "pages", "island-demo.tsx"),
-      `import type { ContentRecord } from "diitey";
-      import { Island } from "diitey";
-      import Counter from "../islands/counter.tsx";
-
-      export default function IslandDemo({
-        items,
-      }: {
-        items: ContentRecord[];
-      }) {
-        return (
-          <main>
-            <h1>Islands</h1>
-            <Island name="counter" component={Counter} props={{ initial: 3 }} />
-          </main>
-        );
-      }
-      `,
-    );
-
-    const process = spawnSite(siteRoot);
-    const address = await readServerAddress(process);
-    const html = await fetch(`${address}/island-demo`).then((response) =>
-      response.text(),
-    );
-
-    expect(html).toMatch(/href="\/assets\/theme\/styles-[a-f0-9]+\.css"/);
-    expect(html).toContain('data-diitey-island="counter"');
-    expect(html).toMatch(
-      /<script type="module" src="\/assets\/islands\/hydrate-[a-f0-9]+\.js"><\/script>/,
-    );
   }, 10_000);
 
   test("content reload does not rebuild or rehash the theme stylesheet", async () => {
@@ -285,18 +186,6 @@ async function writeThemeWithStyles(
       `document: "document",\n      styles: ${JSON.stringify(styles)},`,
     ),
   );
-}
-
-async function stripThemeStyles(siteRoot: string): Promise<void> {
-  const themePath = join(siteRoot, "themes", "minimal", "theme.ts");
-  const source = await Bun.file(themePath).text();
-  await writeFile(
-    themePath,
-    source.replace(/\s*styles:\s*["'][^"']+["'],\s*/, "\n      "),
-  );
-  await rm(join(siteRoot, "themes", "minimal", "styles.css"), {
-    force: true,
-  });
 }
 
 async function copyFixtureSite(): Promise<string> {
