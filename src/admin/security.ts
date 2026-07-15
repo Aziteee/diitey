@@ -46,6 +46,68 @@ export function isLoopbackHost(hostname: string): boolean {
   );
 }
 
+/**
+ * Whether a browser request is allowed against the fixed public origin.
+ * Loopback hosts (127.0.0.1 / localhost / ::1) with the same scheme+port match.
+ * Some Chromium builds send `Origin: null` on same-origin form POSTs; those are
+ * accepted only with Sec-Fetch-Site: same-origin, Sec-Fetch-Mode: navigate, and
+ * a Host that matches the public origin (including loopback aliases).
+ */
+export function requestMatchesPublicOrigin(
+  request: Request,
+  publicOrigin: string,
+): boolean {
+  const originHeader = request.headers.get("origin");
+  if (originHeader && originHeader !== "null") {
+    return originsEquivalent(originHeader, publicOrigin);
+  }
+
+  const site = request.headers.get("sec-fetch-site");
+  const mode = request.headers.get("sec-fetch-mode");
+  if (site === "same-origin" && mode === "navigate") {
+    const host = request.headers.get("host");
+    if (!host) return false;
+    return hostMatchesPublicOrigin(host, publicOrigin);
+  }
+
+  return false;
+}
+
+export function originsEquivalent(left: string, right: string): boolean {
+  let a: URL;
+  let b: URL;
+  try {
+    a = new URL(left);
+    b = new URL(right);
+  } catch {
+    return false;
+  }
+  if (a.protocol !== b.protocol) return false;
+  if (normalizedPort(a) !== normalizedPort(b)) return false;
+  const ha = a.hostname.toLowerCase();
+  const hb = b.hostname.toLowerCase();
+  if (ha === hb) return true;
+  return isLoopbackHost(ha) && isLoopbackHost(hb);
+}
+
+function hostMatchesPublicOrigin(hostHeader: string, publicOrigin: string): boolean {
+  let expected: URL;
+  try {
+    expected = new URL(publicOrigin);
+  } catch {
+    return false;
+  }
+  const hostUrl = new URL(`${expected.protocol}//${hostHeader}`);
+  return originsEquivalent(hostUrl.origin, publicOrigin);
+}
+
+function normalizedPort(url: URL): string {
+  if (url.port) return url.port;
+  if (url.protocol === "https:") return "443";
+  if (url.protocol === "http:") return "80";
+  return "";
+}
+
 export function resolveAdminSecurity(options: {
   readonly adminToken: string | null;
   readonly publicOrigin: string | null;

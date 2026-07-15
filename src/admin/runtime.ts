@@ -30,6 +30,7 @@ import {
   LOGIN_BODY_LIMIT_BYTES,
   LOGIN_RATE_LIMIT,
   type AdminSecurityConfig,
+  requestMatchesPublicOrigin,
   verifySessionToken,
 } from "./security.ts";
 
@@ -266,7 +267,7 @@ async function handleLogin(
     return new Response("Unsupported Media Type", { status: 415 });
   }
 
-  if (request.headers.get("origin") !== security.publicOrigin) {
+  if (!requestMatchesPublicOrigin(request, security.publicOrigin)) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -324,7 +325,7 @@ async function handleLogout(
   sessionValid: boolean,
 ): Promise<Response> {
   if (!sessionValid) return unauthorized();
-  if (request.headers.get("origin") !== security.publicOrigin) {
+  if (!requestMatchesPublicOrigin(request, security.publicOrigin)) {
     return new Response("Forbidden", { status: 403 });
   }
   if (!(await verifyAdminCsrf(request))) {
@@ -370,7 +371,7 @@ async function handleAdminAction(
   if (!hasValidSession(request, token, nowMs)) {
     return unauthorized(requestId);
   }
-  if (request.headers.get("origin") !== options.security.publicOrigin) {
+  if (!requestMatchesPublicOrigin(request, options.security.publicOrigin)) {
     return new Response("Forbidden", {
       status: 403,
       headers: { "x-request-id": requestId },

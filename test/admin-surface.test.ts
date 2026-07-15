@@ -131,6 +131,53 @@ describe("admin surface", () => {
     }
   });
 
+  test("login accepts localhost origin and Chromium Origin null on same-origin navigate", async () => {
+    const siteRoot = await copyFixtureSite();
+    const publication = await openEnabledPublication(siteRoot);
+    try {
+      const localhost = await publication.handle(
+        new Request("http://127.0.0.1:3000/_admin/login", {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded",
+            origin: "http://localhost:3000",
+          },
+          body: `token=${ADMIN_TOKEN}`,
+        }),
+      );
+      expect(localhost.status).toBe(303);
+
+      const nullOrigin = await publication.handle(
+        new Request("http://127.0.0.1:3000/_admin/login", {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded",
+            origin: "null",
+            host: "localhost:3000",
+            "sec-fetch-site": "same-origin",
+            "sec-fetch-mode": "navigate",
+          },
+          body: `token=${ADMIN_TOKEN}`,
+        }),
+      );
+      expect(nullOrigin.status).toBe(303);
+
+      const bareNull = await publication.handle(
+        new Request("http://127.0.0.1:3000/_admin/login", {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded",
+            origin: "null",
+          },
+          body: `token=${ADMIN_TOKEN}`,
+        }),
+      );
+      expect(bareNull.status).toBe(403);
+    } finally {
+      await publication.close();
+    }
+  });
+
   test("login rejects wrong origin, wrong token, and oversized body", async () => {
     const siteRoot = await copyFixtureSite();
     const publication = await openEnabledPublication(siteRoot);
