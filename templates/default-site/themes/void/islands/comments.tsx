@@ -30,47 +30,43 @@ export default function Comments({
   mode = "panel",
 }: CommentsProps) {
   const [expanded, setExpanded] = useState(mode === "panel");
+  const [activated, setActivated] = useState(mode === "panel");
   const [count, setCount] = useState(initialCount);
 
-  if (mode === "toggle" && !expanded) {
-    return (
-      <div class="note-comments">
-        <button
-          type="button"
-          class="comment-toggle"
-          aria-expanded="false"
-          aria-label={`展开评论，共 ${count} 条`}
-          onClick={() => setExpanded(true)}
-        >
-          <CommentIcon />
-          <span class="comment-toggle-count">{count}</span>
-        </button>
-      </div>
-    );
-  }
+  const toggle = () => {
+    setExpanded((value) => {
+      const next = !value;
+      if (next) setActivated(true);
+      return next;
+    });
+  };
 
   return (
-    <div
-      class={mode === "toggle" ? "note-comments note-comments--open" : undefined}
-    >
+    <div class={mode === "toggle" ? "note-comments" : undefined}>
       {mode === "toggle" ? (
         <button
           type="button"
           class="comment-toggle"
-          aria-expanded="true"
-          aria-label={`收起评论，共 ${count} 条`}
-          onClick={() => setExpanded(false)}
+          aria-expanded={expanded}
+          aria-label={
+            expanded ? `收起评论，共 ${count} 条` : `展开评论，共 ${count} 条`
+          }
+          onClick={toggle}
         >
           <CommentIcon />
           <span class="comment-toggle-count">{count}</span>
         </button>
       ) : null}
-      <CommentPanel
-        contentId={contentId}
-        pageSize={pageSize}
-        showHeading={mode === "panel"}
-        onCountChange={setCount}
-      />
+      {activated ? (
+        <div hidden={mode === "toggle" && !expanded}>
+          <CommentPanel
+            contentId={contentId}
+            pageSize={pageSize}
+            showHeading={mode === "panel"}
+            onCountChange={setCount}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -87,8 +83,8 @@ function CommentPanel({
   readonly onCountChange: CountSetter;
 }) {
   const [items, setItems] = useState<CommentTreeNode[]>([]);
-  const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState(0);
+  const [serverFetched, setServerFetched] = useState(0);
+  const [serverRootTotal, setServerRootTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -99,6 +95,8 @@ function CommentPanel({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const hasMore = serverFetched < serverRootTotal;
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -107,9 +105,9 @@ function CommentPanel({
       try {
         const page = await fetchCommentPage(contentId, 0, pageSize);
         if (cancelled) return;
-        setItems([...page.items]);
-        setHasMore(page.hasMore);
-        setOffset(page.items.length);
+        setItems(sortRoots([...page.items]));
+        setServerFetched(page.items.length);
+        setServerRootTotal(page.rootTotal);
         onCountChange(page.total);
       } catch {
         if (!cancelled) setLoadError("Could not load comments");
@@ -128,10 +126,10 @@ function CommentPanel({
     setLoadingMore(true);
     setLoadError(null);
     try {
-      const page = await fetchCommentPage(contentId, offset, pageSize);
-      setItems((prev) => mergeRoots(prev, page.items));
-      setHasMore(page.hasMore);
-      setOffset((prev) => prev + page.items.length);
+      const page = await fetchCommentPage(contentId, serverFetched, pageSize);
+      setItems((prev) => sortRoots(mergeRoots(prev, page.items)));
+      setServerFetched((prev) => prev + page.items.length);
+      setServerRootTotal(page.rootTotal);
       onCountChange(page.total);
     } catch {
       setLoadError("Could not load more comments");
@@ -196,11 +194,18 @@ function CommentPanel({
       const created = (await response.json()) as CommentNode;
       setItems((prev) => {
         const next = insertComment(prev, created);
-        if (created.parentId === null && next.length > prev.length) {
-          setOffset((value) => value + 1);
+        if (
+          created.parentId === null &&
+          next.length > prev.length &&
+          serverFetched >= serverRootTotal
+        ) {
+          setServerFetched((value) => value + 1);
         }
-        return next;
+        return sortRoots(next);
       });
+      if (created.parentId === null) {
+        setServerRootTotal((value) => value + 1);
+      }
       onCountChange((prev) => prev + 1);
       setBody("");
       setReply(null);
@@ -422,15 +427,39 @@ function mergeRoots(
   existing: readonly CommentTreeNode[],
   incoming: readonly CommentTreeNode[],
 ): CommentTreeNode[] {
-  const seen = new Set(existing.map((item) => item.id));
-  const merged = [...existing];
+  const byId = new Map(existing.map((item) => [item.id, item]));
   for (const item of incoming) {
-    if (!seen.has(item.id)) {
-      merged.push(item);
-      seen.add(item.id);
+    const current = byId.get(item.id);
+    if (!current) {
+      byId.set(item.id, item);
+      continue;
     }
+    byId.set(item.id, {
+      ...item,
+      replies: mergeReplies(current.replies, item.replies),
+    });
   }
-  return merged;
+  return [...byId.values()];
+}
+
+function mergeReplies(
+  existing: readonly CommentNode[],
+  incoming: readonly CommentNode[],
+): CommentNode[] {
+  const byId = new Map(existing.map((item) => [item.id, item]));
+  for (const item of incoming) {
+    byId.set(item.id, item);
+  }
+  return [...byId.values()].sort((a, b) => a.id - b.id);
+}
+
+function sortRoots(items: readonly CommentTreeNode[]): CommentTreeNode[] {
+  return [...items]
+    .sort((a, b) => a.id - b.id)
+    .map((root) => ({
+      ...root,
+      replies: [...root.replies].sort((a, b) => a.id - b.id),
+    }));
 }
 
 function insertComment(

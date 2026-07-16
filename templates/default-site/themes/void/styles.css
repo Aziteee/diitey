@@ -241,10 +241,6 @@
     @apply mt-3.5;
   }
 
-  .note-comments--open {
-    @apply mt-3.5;
-  }
-
   .comment-toggle {
     @apply m-0 inline-flex items-center gap-1.5 border-0 bg-transparent p-0
       font-sans text-xs tracking-[0.04em] tabular-nums text-neutral-500
