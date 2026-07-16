@@ -6,14 +6,20 @@ const voidThemeConfig = z
     siteName: z.string().trim().min(1),
     siteDescription: z.string().trim().min(1),
     language: z.string().trim().min(1),
+    homePosts: z.number().int().positive().max(100),
+    homeNotes: z.number().int().positive().max(100),
     postsPerPage: z.number().int().positive().max(100),
+    notesPerPage: z.number().int().positive().max(100),
   })
   .strict()
   .default({
     siteName: "void",
     siteDescription: "在空白处，写下一些东西。",
     language: "zh-CN",
+    homePosts: 6,
+    homeNotes: 3,
     postsPerPage: 10,
+    notesPerPage: 20,
   });
 
 export type VoidThemeConfig = z.infer<typeof voidThemeConfig>;
@@ -34,6 +40,14 @@ export default defineTheme({
             draft: "boolean?",
           },
         }),
+        notes: collection({
+          from: "notes/*.md",
+          where: { draft: { not: true } },
+          orderBy: [{ field: "created", direction: "desc" }],
+          schema: {
+            draft: "boolean?",
+          },
+        }),
         home: collection({
           from: "home.md",
           schema: {
@@ -51,7 +65,10 @@ export default defineTheme({
             },
             posts: {
               collection: "posts",
-              paginate: 6,
+              paginate: config.homePosts,
+            },
+            notes: {
+              collection: "notes",
             },
           }),
         ),
@@ -79,7 +96,17 @@ export default defineTheme({
             },
           }),
         ),
+        route(
+          "/notes",
+          page("notes", {
+            notes: {
+              collection: "notes",
+              paginate: config.notesPerPage,
+            },
+          }),
+        ),
       ],
     };
   },
 });
+

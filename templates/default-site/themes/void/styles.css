@@ -351,4 +351,25 @@
   .post-content > h2 {
     scroll-margin-top: 2rem;
   }
+
+  .note-content {
+    font-size: 0.96875rem;
+    line-height: 1.7;
+  }
+
+  .note-content > :first-child {
+    margin-top: 0;
+  }
+
+  .note-content > :last-child {
+    margin-bottom: 0;
+  }
+
+  .note-content p {
+    margin: 0 0 0.65em;
+  }
+
+  .note-content p:last-child {
+    margin-bottom: 0;
+  }
 }

@@ -7,7 +7,10 @@ export default defineSite({
       siteName: "void",
       siteDescription: "在空白处，写下一些东西。",
       language: "zh-CN",
+      homePosts: 6,
+      homeNotes: 3,
       postsPerPage: 10,
+      notesPerPage: 10,
     },
   },
   plugins: [

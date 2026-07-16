@@ -10,25 +10,34 @@ afterEach(async () => {
   await Promise.all(processes.splice(0).map((process) => process.exited));
 });
 
-test("the default site template serves its home, archives, and article pages", async () => {
+test("the default site template serves its home, archives, notes, and article pages", async () => {
   const process = spawnSite();
   const address = await readServerAddress(process);
-  const [home, archives, article] = await Promise.all([
+  const [home, archives, notes, article] = await Promise.all([
     fetch(address),
     fetch(`${address}/archives`),
+    fetch(`${address}/notes`),
     fetch(`${address}/archives/negative-space`),
   ]);
-  const [homeHtml, archivesHtml, articleHtml] = await Promise.all([
+  const [homeHtml, archivesHtml, notesHtml, articleHtml] = await Promise.all([
     home.text(),
     archives.text(),
+    notes.text(),
     article.text(),
   ]);
 
   expect(home.status).toBe(200);
   expect(homeHtml).toContain('href="/archives/negative-space"');
+  expect(homeHtml).toContain("Notes");
+  expect(homeHtml).toContain("傍晚窗外有一点风");
+  expect(homeHtml).toContain('href="/notes"');
+  expect(homeHtml).not.toContain("第二杯咖啡之后");
   expect(archives.status).toBe(200);
   expect(archivesHtml).toContain('href="/archives/negative-space"');
   expect(archivesHtml).toContain("Writing");
+  expect(notes.status).toBe(200);
+  expect(notesHtml).toContain("Notes");
+  expect(notesHtml).toContain("第二杯咖啡之后");
   expect(article.status).toBe(200);
   expect(articleHtml).toContain('data-diitey-island="article-scroll-nav"');
 }, 15_000);
