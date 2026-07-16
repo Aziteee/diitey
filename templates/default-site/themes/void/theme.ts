@@ -54,6 +54,12 @@ export default defineTheme({
             title: "string",
           },
         }),
+        links: collection({
+          from: "links.md",
+          schema: {
+            title: "string?",
+          },
+        }),
       },
       routes: [
         route(
@@ -69,6 +75,10 @@ export default defineTheme({
             },
             notes: {
               collection: "notes",
+            },
+            links: {
+              collection: "links",
+              limit: 1,
             },
           }),
         ),

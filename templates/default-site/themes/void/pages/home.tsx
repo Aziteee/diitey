@@ -11,36 +11,39 @@ interface HomeProps {
   readonly home: readonly ContentRecord[];
   readonly posts: readonly ContentRecord[];
   readonly notes: readonly ContentRecord[];
+  readonly links: readonly ContentRecord[];
   readonly pagination: Pagination;
 }
 
-export default function Home({ home, posts, notes, pagination }: HomeProps) {
+export default function Home({
+  home,
+  posts,
+  notes,
+  links,
+  pagination,
+}: HomeProps) {
   const config = useThemeConfig<VoidThemeConfig>();
   const homeRecord = home[0];
   const hasMorePosts = pagination.totalItems > config.homePosts;
   const recentNotes = notes.slice(0, config.homeNotes);
   const hasMoreNotes = notes.length > config.homeNotes;
+  const linksHtml = links[0]?.html?.trim() ?? "";
+  const hasLinks = linksHtml.length > 0;
 
   return (
-    <main class="mx-auto w-full max-w-[45rem] px-6 py-16 font-serif sm:px-8 sm:py-24">
+    <main class="page-shell page-shell--home">
       <div
         class="content home-content mb-20 sm:mb-28"
         dangerouslySetInnerHTML={{ __html: homeRecord?.html ?? "" }}
       />
 
       <section aria-labelledby="writing-heading">
-        <div class="mb-3 flex items-baseline justify-between gap-4">
-          <h2
-            id="writing-heading"
-            class="m-0 text-xl font-medium tracking-[-0.02em] text-neutral-900 dark:text-neutral-100"
-          >
+        <div class="section-header">
+          <h2 id="writing-heading" class="section-title m-0">
             Writing
           </h2>
           {hasMorePosts ? (
-            <a
-              href="/archives"
-              class="animated-link shrink-0 text-sm text-neutral-500 focus-visible:outline-none dark:text-neutral-500"
-            >
+            <a href="/archives" class="animated-link section-more">
               查看更多
             </a>
           ) : null}
@@ -49,24 +52,32 @@ export default function Home({ home, posts, notes, pagination }: HomeProps) {
       </section>
 
       <section class="mt-20 sm:mt-28" aria-labelledby="notes-heading">
-        <div class="mb-3 flex items-baseline justify-between gap-4">
-          <h2
-            id="notes-heading"
-            class="m-0 text-xl font-medium tracking-[-0.02em] text-neutral-900 dark:text-neutral-100"
-          >
+        <div class="section-header">
+          <h2 id="notes-heading" class="section-title m-0">
             Notes
           </h2>
           {hasMoreNotes ? (
-            <a
-              href="/notes"
-              class="animated-link shrink-0 text-sm text-neutral-500 focus-visible:outline-none dark:text-neutral-500"
-            >
+            <a href="/notes" class="animated-link section-more">
               查看更多
             </a>
           ) : null}
         </div>
         <NoteList notes={recentNotes} />
       </section>
+
+      {hasLinks ? (
+        <section class="mt-20 sm:mt-28" aria-labelledby="links-heading">
+          <div class="section-header">
+            <h2 id="links-heading" class="section-title m-0">
+              Links
+            </h2>
+          </div>
+          <div
+            class="content links-content mt-4"
+            dangerouslySetInnerHTML={{ __html: linksHtml }}
+          />
+        </section>
+      ) : null}
     </main>
   );
 }

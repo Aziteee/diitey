@@ -7,17 +7,14 @@ export function NoteList({
   readonly notes: readonly ContentRecord[];
 }) {
   if (notes.length === 0) {
-    return <p class="text-neutral-500 dark:text-neutral-500">尚无笔记。</p>;
+    return <p class="muted">尚无笔记。</p>;
   }
 
   return (
-    <ol class="m-0 list-none p-0">
+    <ol class="list-reset">
       {notes.map((note) => (
-        <li class="-mx-4 border-b border-neutral-200 px-4 py-5 last:border-b-0 dark:border-neutral-800">
-          <time
-            datetime={note.created}
-            class="mb-2 block text-sm tabular-nums text-neutral-500 dark:text-neutral-500"
-          >
+        <li class="note-list-item">
+          <time datetime={note.created} class="note-list-date">
             {formatDate(note.created)}
           </time>
           <div

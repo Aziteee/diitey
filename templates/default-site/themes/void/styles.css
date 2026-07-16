@@ -130,6 +130,16 @@
 }
 
 @layer components {
+  /* —— Layout shell —— */
+  .page-shell {
+    @apply mx-auto w-full max-w-[45rem] px-6 py-12 font-serif sm:px-8 sm:py-16;
+  }
+
+  .page-shell--home {
+    @apply py-16 sm:py-24;
+  }
+
+  /* —— Links —— */
   .animated-link,
   .content a {
     text-decoration-line: underline;
@@ -148,18 +158,177 @@
     text-decoration-color: var(--heading);
   }
 
+  .animated-link {
+    @apply focus-visible:outline-none;
+  }
+
+  .section-more {
+    @apply shrink-0 text-sm text-neutral-500 dark:text-neutral-500;
+  }
+
   .back-link {
+    @apply inline-flex items-center gap-2 text-sm text-neutral-500 no-underline
+      hover:text-neutral-950 focus-visible:text-neutral-950 focus-visible:outline-none
+      dark:text-neutral-500 dark:hover:text-neutral-100 dark:focus-visible:text-neutral-100;
     background: none;
     text-decoration: none;
   }
 
   .back-arrow {
+    @apply h-3.5 w-4 shrink-0;
     transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .back-link:hover .back-arrow,
   .back-link:focus-visible .back-arrow {
     transform: translateX(-0.2rem);
+  }
+
+  /* —— Section chrome —— */
+  .section-title {
+    @apply text-xl font-medium tracking-[-0.02em] text-neutral-900 dark:text-neutral-100;
+  }
+
+  .section-header {
+    @apply mb-3 flex items-baseline justify-between gap-4;
+  }
+
+  .pagination {
+    @apply mt-10 flex justify-between text-sm text-neutral-600 dark:text-neutral-400;
+  }
+
+  .muted {
+    @apply text-neutral-500 dark:text-neutral-500;
+  }
+
+  /* —— Lists —— */
+  .list-reset {
+    @apply m-0 list-none p-0;
+  }
+
+  .list-row {
+    @apply -mx-4 border-b border-neutral-200 last:border-b-0 dark:border-neutral-800;
+  }
+
+  .post-list-link {
+    @apply grid gap-2 px-4 py-5 no-underline outline-none transition-colors duration-300
+      hover:bg-white focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-neutral-300
+      sm:grid-cols-[8rem_1fr] sm:items-baseline sm:gap-6
+      dark:hover:bg-neutral-900 dark:focus-visible:bg-neutral-900 dark:focus-visible:ring-neutral-700;
+  }
+
+  .post-list-date {
+    @apply text-sm tabular-nums text-neutral-500 transition-colors duration-300
+      group-hover:text-neutral-800 group-focus-visible:text-neutral-800
+      dark:text-neutral-500 dark:group-hover:text-neutral-200 dark:group-focus-visible:text-neutral-200;
+  }
+
+  .post-list-title {
+    @apply text-lg font-normal leading-7 tracking-[-0.015em] text-neutral-700 transition-colors duration-300
+      group-hover:text-neutral-950 group-focus-visible:text-neutral-950
+      dark:text-neutral-300 dark:group-hover:text-white dark:group-focus-visible:text-white;
+  }
+
+  .note-list-item {
+    @apply -mx-4 border-b border-neutral-200 px-4 py-5 last:border-b-0 dark:border-neutral-800;
+  }
+
+  .note-list-date {
+    @apply mb-2 block text-sm tabular-nums text-neutral-500 dark:text-neutral-500;
+  }
+
+  /* —— Forms / buttons —— */
+  .btn-primary {
+    @apply cursor-pointer rounded-none border border-neutral-200 bg-transparent px-4 py-2.5
+      font-sans text-[0.8125rem] tracking-[0.02em] text-neutral-950
+      transition-[color,border-color,background-color] duration-[220ms]
+      ease-[cubic-bezier(0.22,1,0.36,1)]
+      hover:border-neutral-950 hover:bg-neutral-950/5
+      focus-visible:border-neutral-950 focus-visible:bg-neutral-950/5 focus-visible:outline-none
+      disabled:cursor-wait disabled:opacity-55
+      dark:border-neutral-800 dark:text-neutral-100
+      dark:hover:border-neutral-100 dark:hover:bg-white/5
+      dark:focus-visible:border-neutral-100 dark:focus-visible:bg-white/5;
+  }
+
+  .btn-ghost {
+    @apply m-0 border-0 bg-transparent p-0 font-sans text-xs tracking-[0.04em] text-neutral-500
+      transition-colors duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)]
+      hover:text-neutral-950 focus-visible:text-neutral-950 focus-visible:outline-none
+      dark:text-neutral-500 dark:hover:text-neutral-100 dark:focus-visible:text-neutral-100;
+  }
+
+  .field-label {
+    @apply font-sans text-xs tracking-[0.04em] text-neutral-500 dark:text-neutral-500;
+  }
+
+  .field {
+    @apply flex flex-col gap-1.5;
+  }
+
+  .input {
+    @apply w-full rounded-none border border-neutral-200 bg-transparent px-3 py-2.5
+      font-sans text-sm leading-normal text-neutral-800
+      transition-[border-color,background-color] duration-[220ms]
+      ease-[cubic-bezier(0.22,1,0.36,1)]
+      placeholder:text-neutral-500
+      hover:border-neutral-400
+      focus-visible:border-neutral-950 focus-visible:bg-neutral-50 focus-visible:outline-none
+      dark:border-neutral-800 dark:text-neutral-200 dark:placeholder:text-neutral-500
+      dark:hover:border-neutral-600
+      dark:focus-visible:border-neutral-100 dark:focus-visible:bg-neutral-900;
+  }
+
+  .textarea {
+    @apply min-h-28 w-full resize-y rounded-none border border-neutral-200 bg-transparent px-3 py-2.5
+      font-serif text-[0.96875rem] leading-[1.7] text-neutral-800
+      transition-[border-color,background-color] duration-[220ms]
+      ease-[cubic-bezier(0.22,1,0.36,1)]
+      placeholder:text-neutral-500
+      hover:border-neutral-400
+      focus-visible:border-neutral-950 focus-visible:bg-neutral-50 focus-visible:outline-none
+      dark:border-neutral-800 dark:text-neutral-200 dark:placeholder:text-neutral-500
+      dark:hover:border-neutral-600
+      dark:focus-visible:border-neutral-100 dark:focus-visible:bg-neutral-900;
+  }
+
+  /* —— Comments —— */
+  .comment-section {
+    @apply mt-[4.5rem] border-t border-neutral-200 pt-9 dark:border-neutral-800;
+  }
+
+  .comment-heading {
+    @apply m-0 font-sans text-lg font-medium tracking-[-0.02em] text-neutral-950 dark:text-neutral-100;
+  }
+
+  .comment-root {
+    @apply mt-7 border-t border-neutral-200 pt-7 dark:border-neutral-800;
+  }
+
+  .comment-replies {
+    @apply ml-3 mt-5 list-none border-l border-neutral-200 p-0 pl-4 dark:border-neutral-800;
+  }
+
+  .comment-author {
+    @apply font-sans text-sm font-medium tracking-[-0.01em] text-neutral-950 dark:text-neutral-100;
+  }
+
+  .comment-time {
+    @apply font-sans text-xs tracking-[0.04em] tabular-nums text-neutral-500 dark:text-neutral-500;
+  }
+
+  .comment-body {
+    @apply mb-2.5 mt-0 whitespace-pre-wrap break-words font-serif text-[0.96875rem]
+      leading-[1.75] tracking-[0.01em] text-neutral-800 dark:text-neutral-200;
+  }
+
+  .comment-reply-meta {
+    @apply mb-2 mt-0 font-sans text-[0.8125rem] text-neutral-500 dark:text-neutral-500;
+  }
+
+  .comment-form-reply {
+    @apply mb-4 flex items-baseline justify-between gap-4 font-sans text-[0.8125rem]
+      text-neutral-500 dark:text-neutral-500;
   }
 
   .content {

@@ -16,15 +16,6 @@ interface ReplyTarget {
   readonly label: string;
 }
 
-const textButtonClass =
-  "m-0 border-0 bg-transparent p-0 font-sans text-xs tracking-[0.04em] text-neutral-500 transition-colors duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-neutral-950 focus-visible:text-neutral-950 focus-visible:outline-none dark:text-neutral-500 dark:hover:text-neutral-100 dark:focus-visible:text-neutral-100";
-
-const fieldLabelClass =
-  "font-sans text-xs tracking-[0.04em] text-neutral-500 dark:text-neutral-500";
-
-const inputClass =
-  "w-full rounded-none border border-neutral-200 bg-transparent px-3 py-2.5 font-sans text-sm leading-normal text-neutral-800 transition-[border-color,background-color] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] placeholder:text-neutral-500 hover:border-neutral-400 focus-visible:border-neutral-950 focus-visible:bg-neutral-50 focus-visible:outline-none dark:border-neutral-800 dark:text-neutral-200 dark:placeholder:text-neutral-500 dark:hover:border-neutral-600 dark:focus-visible:border-neutral-100 dark:focus-visible:bg-neutral-900";
-
 export default function Comments({ contentId, comments }: CommentsProps) {
   const [authorName, setAuthorName] = useState("");
   const [email, setEmail] = useState("");
@@ -93,39 +84,24 @@ export default function Comments({ contentId, comments }: CommentsProps) {
     }
   };
 
-  const total = countComments(comments);
-
   return (
-    <section
-      class="mt-[4.5rem] border-t border-neutral-200 pt-9 dark:border-neutral-800"
-      aria-labelledby="comments-heading"
-    >
+    <section class="comment-section" aria-labelledby="comments-heading">
       <header class="mb-7 flex items-baseline justify-between gap-4">
-        <h2
-          id="comments-heading"
-          class="m-0 font-sans text-lg font-medium tracking-[-0.02em] text-neutral-950 dark:text-neutral-100"
-        >
+        <h2 id="comments-heading" class="comment-heading">
           Comments
         </h2>
       </header>
 
       {comments.length > 0 ? (
-        <ol class="m-0 list-none p-0">
+        <ol class="list-reset">
           {comments.map((root, index) => (
-            <li
-              key={root.id}
-              class={
-                index === 0
-                  ? ""
-                  : "mt-7 border-t border-neutral-200 pt-7 dark:border-neutral-800"
-              }
-            >
+            <li key={root.id} class={index === 0 ? "" : "comment-root"}>
               <CommentItem
                 comment={root}
                 onReply={() => replyToRoot(root)}
               />
               {root.replies.length > 0 ? (
-                <ol class="ml-3 mt-5 list-none border-l border-neutral-200 p-0 pl-4 dark:border-neutral-800">
+                <ol class="comment-replies">
                   {root.replies.map((child, replyIndex) => (
                     <li
                       key={child.id}
@@ -149,28 +125,24 @@ export default function Comments({ contentId, comments }: CommentsProps) {
         onSubmit={submit}
       >
         {reply ? (
-          <div class="mb-4 flex items-baseline justify-between gap-4 font-sans text-[0.8125rem] text-neutral-500 dark:text-neutral-500">
+          <div class="comment-form-reply">
             <span>
               Replying to{" "}
               <strong class="font-medium text-neutral-950 dark:text-neutral-100">
                 {reply.label}
               </strong>
             </span>
-            <button
-              type="button"
-              class={textButtonClass}
-              onClick={clearReply}
-            >
+            <button type="button" class="btn-ghost" onClick={clearReply}>
               Cancel
             </button>
           </div>
         ) : null}
 
         <div class="grid gap-3.5 sm:grid-cols-2">
-          <label class="flex flex-col gap-1.5">
-            <span class={fieldLabelClass}>Name</span>
+          <label class="field">
+            <span class="field-label">Name</span>
             <input
-              class={inputClass}
+              class="input"
               name="authorName"
               type="text"
               required
@@ -180,10 +152,10 @@ export default function Comments({ contentId, comments }: CommentsProps) {
               onInput={(event) => setAuthorName(event.currentTarget.value)}
             />
           </label>
-          <label class="flex flex-col gap-1.5">
-            <span class={fieldLabelClass}>Email</span>
+          <label class="field">
+            <span class="field-label">Email</span>
             <input
-              class={inputClass}
+              class="input"
               name="email"
               type="email"
               maxLength={254}
@@ -195,10 +167,10 @@ export default function Comments({ contentId, comments }: CommentsProps) {
           </label>
         </div>
 
-        <label class="mt-3.5 flex flex-col gap-1.5">
-          <span class={fieldLabelClass}>Comment</span>
+        <label class="field mt-3.5">
+          <span class="field-label">Comment</span>
           <textarea
-            class="min-h-28 w-full resize-y rounded-none border border-neutral-200 bg-transparent px-3 py-2.5 font-serif text-[0.96875rem] leading-[1.7] text-neutral-800 transition-[border-color,background-color] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] placeholder:text-neutral-500 hover:border-neutral-400 focus-visible:border-neutral-950 focus-visible:bg-neutral-50 focus-visible:outline-none dark:border-neutral-800 dark:text-neutral-200 dark:placeholder:text-neutral-500 dark:hover:border-neutral-600 dark:focus-visible:border-neutral-100 dark:focus-visible:bg-neutral-900"
+            class="textarea"
             name="body"
             required
             rows={4}
@@ -218,11 +190,7 @@ export default function Comments({ contentId, comments }: CommentsProps) {
         ) : null}
 
         <div class="mt-4 flex justify-end">
-          <button
-            type="submit"
-            class="cursor-pointer rounded-none border border-neutral-200 bg-transparent px-4 py-2.5 font-sans text-[0.8125rem] tracking-[0.02em] text-neutral-950 transition-[color,border-color,background-color] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-neutral-950 hover:bg-neutral-950/5 focus-visible:border-neutral-950 focus-visible:bg-neutral-950/5 focus-visible:outline-none disabled:cursor-wait disabled:opacity-55 dark:border-neutral-800 dark:text-neutral-100 dark:hover:border-neutral-100 dark:hover:bg-white/5 dark:focus-visible:border-neutral-100 dark:focus-visible:bg-white/5"
-            disabled={submitting}
-          >
+          <button type="submit" class="btn-primary" disabled={submitting}>
             {submitting ? "Posting…" : "Post comment"}
           </button>
         </div>
@@ -241,40 +209,26 @@ function CommentItem({
   return (
     <article id={`comment-${comment.id}`}>
       <header class="mb-1.5 flex flex-wrap items-baseline gap-3">
-        <span class="font-sans text-sm font-medium tracking-[-0.01em] text-neutral-950 dark:text-neutral-100">
-          {comment.authorName}
-        </span>
-        <time
-          class="font-sans text-xs tracking-[0.04em] tabular-nums text-neutral-500 dark:text-neutral-500"
-          datetime={comment.createdAt}
-        >
+        <span class="comment-author">{comment.authorName}</span>
+        <time class="comment-time" datetime={comment.createdAt}>
           {formatDate(comment.createdAt)}
         </time>
       </header>
       {comment.replyTo ? (
-        <p class="mb-2 mt-0 font-sans text-[0.8125rem] text-neutral-500 dark:text-neutral-500">
+        <p class="comment-reply-meta">
           Replying to{" "}
           <a
-            class="animated-link focus-visible:outline-none"
+            class="animated-link"
             href={`#comment-${comment.replyTo.id}`}
           >
             {comment.replyTo.authorName}
           </a>
         </p>
       ) : null}
-      <p class="mb-2.5 mt-0 whitespace-pre-wrap break-words font-serif text-[0.96875rem] leading-[1.75] tracking-[0.01em] text-neutral-800 dark:text-neutral-200">
-        {comment.body}
-      </p>
-      <button type="button" class={textButtonClass} onClick={onReply}>
+      <p class="comment-body">{comment.body}</p>
+      <button type="button" class="btn-ghost" onClick={onReply}>
         Reply
       </button>
     </article>
-  );
-}
-
-function countComments(comments: readonly CommentTreeNode[]): number {
-  return comments.reduce(
-    (total, root) => total + 1 + root.replies.length,
-    0,
   );
 }

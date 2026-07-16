@@ -15,14 +15,14 @@ export default function Post({ post, comments }: PostProps) {
   const title = String(post.attributes.title);
 
   return (
-    <main class="post-page mx-auto w-full max-w-[45rem] px-6 py-12 font-serif sm:px-8 sm:py-16">
+    <main class="page-shell post-page">
       <a
         href="/"
         aria-label={`返回 ${config.siteName} 首页`}
-        class="back-link group inline-flex items-center gap-2 text-sm text-neutral-500 no-underline hover:text-neutral-950 focus-visible:text-neutral-950 focus-visible:outline-none dark:text-neutral-500 dark:hover:text-neutral-100 dark:focus-visible:text-neutral-100"
+        class="group back-link"
       >
         <svg
-          class="back-arrow h-3.5 w-4 shrink-0"
+          class="back-arrow"
           viewBox="0 0 20 14"
           fill="none"
           aria-hidden="true"
