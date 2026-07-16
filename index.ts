@@ -57,7 +57,6 @@ async function runStart(root: string, args: string[]): Promise<void> {
     adminToken,
     publicOrigin,
   });
-  console.log(`Listening on ${site.url.origin}`);
 
   let stopping = false;
   const stop = async () => {

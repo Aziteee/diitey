@@ -6,6 +6,7 @@ import {
   resolveAdminSecurity,
   type AdminSecurityConfig,
 } from "./admin/security.ts";
+import { createLogger, type Logger } from "./logger.ts";
 
 export interface StartOptions {
   readonly root: string;
@@ -13,14 +14,17 @@ export interface StartOptions {
   readonly host?: string;
   readonly adminToken?: string | null;
   readonly publicOrigin?: string | null;
+  readonly logger?: Logger;
 }
 
 interface RunningSite {
   readonly url: URL;
+  readonly logger: Logger;
   stop(): Promise<void>;
 }
 
 export async function startSite(options: StartOptions): Promise<RunningSite> {
+  const logger = options.logger ?? createLogger();
   const host = options.host ?? "127.0.0.1";
   const adminToken = options.adminToken ?? null;
   const publicOrigin = options.publicOrigin
@@ -37,6 +41,7 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
   const publication = await openPublication({
     root: options.root,
     security,
+    logger,
   });
 
   const publicServer = Bun.serve({
@@ -112,9 +117,15 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
     throw error;
   }
 
+  logger.info(`Listening on ${publicServer.url.origin}`, {
+    origin: publicServer.url.origin,
+  });
+
   return {
     url: publicServer.url,
+    logger,
     async stop() {
+      logger.info("site shutting down");
       await publication.close();
       adminServer.stop(true);
       publicServer.stop(true);

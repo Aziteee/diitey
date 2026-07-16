@@ -84,9 +84,16 @@ export interface ContentSummary {
   readonly attributes: Readonly<Record<string, unknown>>;
 }
 
+export interface PluginLogger {
+  info(message: string): void;
+  warn(message: string): void;
+  error(message: string): void;
+}
+
 export interface PluginServiceContext {
   readonly database: Database;
   readonly signal: AbortSignal;
+  readonly log: PluginLogger;
   readonly content: {
     exists(contentId: string): boolean;
     get(contentId: string): ContentSummary | undefined;

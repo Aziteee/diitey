@@ -15,6 +15,8 @@ import {
 } from "../admin/runtime.ts";
 import type { AdminSecurityConfig } from "../admin/security.ts";
 import { compileAdminProgram } from "../admin/program.ts";
+import type { Logger } from "../logger.ts";
+import { createSilentLogger } from "../silent-logger.ts";
 import { buildContentSnapshot } from "./content-snapshot.ts";
 import {
   buildEffectivePublication,
@@ -78,8 +80,21 @@ export interface PublicationRuntime {
 export async function openPublication(options: {
   readonly root: string;
   readonly security?: AdminSecurityConfig;
+  readonly logger?: Logger;
 }): Promise<PublicationRuntime> {
-  const program = await compileSiteProgram(options.root);
+  const log = options.logger ?? createSilentLogger();
+  let program: SiteProgram;
+  try {
+    program = await compileSiteProgram(options.root);
+    log.info("site program compiled", {
+      programRevision: program.programRevision,
+    });
+  } catch (error) {
+    log.error("site program compilation failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
   const security =
     options.security ??
     Object.freeze({
@@ -104,6 +119,7 @@ export async function openPublication(options: {
   const pluginDatabase = await preparePluginDatabase(
     options.root,
     program.pluginDefinitions,
+    log,
   );
 
   let lastAttempt: BuildAttempt = {
@@ -122,6 +138,7 @@ export async function openPublication(options: {
     pluginDatabase,
     getPublication: () => publication,
     security,
+    logger: log,
   });
 
   return {
@@ -152,6 +169,7 @@ export async function openPublication(options: {
           pluginDatabase,
           rateLimiter,
           context.clientAddress ?? "unknown",
+          log,
         );
       }
 
@@ -203,6 +221,7 @@ export async function openPublication(options: {
         const body = await plan.render(entry, request, {
           pluginRuntime: program.plugins,
           pluginDatabase,
+          logger: log,
           islands: program.islands,
           styles: program.styles,
           contentIds: requestPublication.contentIds,
@@ -230,15 +249,13 @@ export async function openPublication(options: {
           return new Response(error.message, { status: error.status });
         }
         const requestId = crypto.randomUUID();
-        console.error(
-          JSON.stringify({
-            requestId,
-            page: plan.pageName,
-            status: 500,
-            durationMs: performance.now() - renderStartedAt,
-            error: error instanceof Error ? error.stack : String(error),
-          }),
-        );
+        log.error("page render failed", {
+          requestId,
+          page: plan.pageName,
+          status: 500,
+          durationMs: performance.now() - renderStartedAt,
+          error: error instanceof Error ? error.message : String(error),
+        });
         return new Response(
           `<!doctype html><html><body><h1>Page rendering failed</h1><p>Request ID: ${requestId}</p></body></html>`,
           {
@@ -253,16 +270,20 @@ export async function openPublication(options: {
       }
     },
 
-    async reload(options = {}) {
+    async reload(reloadOptions = {}) {
       if (closed) {
         return {
           status: "failed",
-          buildId: options.buildId ?? crypto.randomUUID(),
+          buildId: reloadOptions.buildId ?? crypto.randomUUID(),
           error: "Publication runtime is closed",
           snapshotVersion: publication.version,
         };
       }
       if (activeBuildId !== null) {
+        log.info("content reload in progress", {
+          buildId: activeBuildId,
+          snapshotVersion: publication.version,
+        });
         return {
           status: "in_progress",
           buildId: activeBuildId,
@@ -270,10 +291,14 @@ export async function openPublication(options: {
         };
       }
 
-      const buildId = options.buildId ?? crypto.randomUUID();
+      const buildId = reloadOptions.buildId ?? crypto.randomUUID();
       activeBuildId = buildId;
+      log.info("content reload started", {
+        buildId,
+        snapshotVersion: publication.version,
+      });
       try {
-        if (options.signal?.aborted) {
+        if (reloadOptions.signal?.aborted) {
           throw new Error("Reload was cancelled");
         }
         const candidate = await snapshotWorker.build(
@@ -287,6 +312,10 @@ export async function openPublication(options: {
         }
         publication = materializePublication(program, candidate);
         lastAttempt = { buildId, result: "succeeded" };
+        log.info("content reload succeeded", {
+          buildId,
+          snapshotVersion: publication.version,
+        });
         return {
           status: "succeeded",
           buildId,
@@ -295,6 +324,11 @@ export async function openPublication(options: {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         lastAttempt = { buildId, result: "failed", error: message };
+        log.error("content reload failed", {
+          buildId,
+          snapshotVersion: publication.version,
+          error: message,
+        });
         return {
           status: "failed",
           buildId,
@@ -333,6 +367,7 @@ async function handleAction(
   pluginDatabase: Database,
   rateLimiter: ReturnType<typeof createActionRateLimiter>,
   clientAddress: string,
+  log: Logger,
 ): Promise<Response> {
   const actionName = url.pathname.slice("/_action/".length);
   const action = program.plugins.actions[actionName];
@@ -395,6 +430,7 @@ async function handleAction(
         pluginDatabase,
         createContentLookup(publication.content.byId),
         signal,
+        log,
       ),
     );
     return Response.json(result, {
@@ -414,15 +450,13 @@ async function handleAction(
         { status: 404, headers: { "x-request-id": requestId } },
       );
     }
-    console.error(
-      JSON.stringify({
-        requestId,
-        action: actionName,
-        status: 500,
-        durationMs: performance.now() - startedAt,
-        error: error instanceof Error ? error.stack : String(error),
-      }),
-    );
+    log.error("action failed", {
+      requestId,
+      action: actionName,
+      status: 500,
+      durationMs: performance.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return Response.json(
       { error: "Action failed", requestId },
       { status: 500, headers: { "x-request-id": requestId } },

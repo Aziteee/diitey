@@ -22,12 +22,14 @@ import {
   emptyThemeStyles,
   type BuiltThemeStyles,
 } from "../styles.ts";
+import type { Logger } from "../logger.ts";
 import type { ContentSnapshot } from "./content-snapshot.ts";
 import { normalizeRoutePath } from "./route-pattern.ts";
 
 export interface RequestRuntime {
   readonly pluginRuntime: PluginRuntime;
   readonly pluginDatabase: Database;
+  readonly logger: Logger;
   readonly islands: BuiltIslands;
   readonly styles: BuiltThemeStyles;
   readonly contentIds: ReadonlySet<string>;
@@ -111,6 +113,7 @@ export function compilePageBindings(options: {
 }): PagePlanStages {
   const pluginRuntime: PluginRuntime = options.pluginRuntime ?? {
     services: Object.freeze({}),
+    serviceOwners: Object.freeze({}),
     actions: Object.freeze({}),
     adminActions: Object.freeze({}),
   };
@@ -642,6 +645,7 @@ async function resolveServices(
             runtime.pluginDatabase,
             createContentLookup(runtime.contentById),
             signal,
+            runtime.logger,
           ),
         );
         return [service.name, output] as const;

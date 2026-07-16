@@ -6,6 +6,8 @@ import type {
   PluginServiceDefinition,
 } from "./index.ts";
 import type { Database } from "bun:sqlite";
+import type { Logger } from "./logger.ts";
+import { createSilentLogger } from "./silent-logger.ts";
 
 export const RESERVED_ADMIN_SEGMENTS = Object.freeze([
   "login",
@@ -24,6 +26,8 @@ export interface CompiledAction extends ActionDefinition {
 
 export interface PluginRuntime {
   readonly services: Readonly<Record<string, PluginServiceDefinition>>;
+  /** Owning plugin id per service name; omitted when the plugin has no id. */
+  readonly serviceOwners: Readonly<Record<string, string>>;
   readonly actions: Readonly<Record<string, CompiledAction>>;
   readonly adminActions: Readonly<
     Record<string, Readonly<Record<string, CompiledAction>>>
@@ -37,6 +41,7 @@ export function buildPluginRuntime(
   plugins: readonly PluginDefinition[],
 ): PluginRuntime {
   const services: Record<string, PluginServiceDefinition> = Object.create(null);
+  const serviceOwners: Record<string, string> = Object.create(null);
   const actions: Record<string, CompiledAction> = Object.create(null);
   const adminActions: Record<
     string,
@@ -49,6 +54,9 @@ export function buildPluginRuntime(
     for (const [name, service] of Object.entries(plugin.services ?? {})) {
       if (services[name]) throw new Error(`Duplicate plugin service: ${name}`);
       services[name] = service;
+      if (plugin.id) {
+        serviceOwners[name] = plugin.id;
+      }
     }
 
     for (const [name, action] of Object.entries(plugin.actions ?? {})) {
@@ -120,6 +128,7 @@ export function buildPluginRuntime(
 
   return Object.freeze({
     services: Object.freeze(services),
+    serviceOwners: Object.freeze(serviceOwners),
     actions: Object.freeze(actions),
     adminActions: Object.freeze(frozenAdmin),
   });
@@ -170,6 +179,7 @@ export async function callPluginService(
   database?: Database,
   contentLookup: ContentLookup = emptyContentLookup,
   signal: AbortSignal = new AbortController().signal,
+  logger: Logger = createSilentLogger(),
 ): Promise<unknown> {
   const service = runtime.services[name];
   if (!service) throw new Error(`Unknown plugin service: ${name}`);
@@ -179,8 +189,14 @@ export async function callPluginService(
   } catch {
     throw new PluginInputError(`Invalid input for plugin service ${name}`);
   }
+  const ownerPluginId = runtime.serviceOwners[name];
+  const log =
+    ownerPluginId === undefined
+      ? logger
+      : logger.child({ pluginId: ownerPluginId });
   const output = await service.handler(parsedInput, {
     signal,
+    log,
     get database() {
       if (!database) {
         throw new Error(`Plugin service ${name} requires SQLite storage`);

@@ -11,6 +11,8 @@ import {
 import { runWithTimeout } from "../plugin-invoke.ts";
 import { createActionRateLimiter } from "../rate-limit.ts";
 import { renderPageWithIslands } from "../islands.ts";
+import type { Logger } from "../logger.ts";
+import { createSilentLogger } from "../silent-logger.ts";
 import type { EffectivePublication } from "../publication/effective-publication.ts";
 import { AdminDocument } from "./document.tsx";
 import {
@@ -47,6 +49,7 @@ export interface AdminRuntimeOptions {
   readonly pluginDatabase: Database;
   readonly getPublication: () => EffectivePublication;
   readonly security: AdminSecurityConfig;
+  readonly logger?: Logger;
   readonly now?: () => number;
 }
 
@@ -189,9 +192,14 @@ export function createAdminRuntime(
         publication: options.getPublication(),
         security: options.security,
         csrfToken,
+        logger: resolveLogger(options),
       });
     },
   });
+}
+
+function resolveLogger(options: AdminRuntimeOptions): Logger {
+  return options.logger ?? createSilentLogger();
 }
 
 function isPublicAdminStylesheet(
@@ -425,6 +433,7 @@ async function handleAdminAction(
         options.pluginDatabase,
         contentLookup,
         signal,
+        resolveLogger(options),
       ),
     );
     return Response.json(result, {
@@ -444,15 +453,13 @@ async function handleAdminAction(
         { status: 404, headers: { "x-request-id": requestId } },
       );
     }
-    console.error(
-      JSON.stringify({
-        requestId,
-        action: `${pluginId}/${actionName}`,
-        status: 500,
-        durationMs: performance.now() - startedAt,
-        error: error instanceof Error ? error.stack : String(error),
-      }),
-    );
+    resolveLogger(options).error("admin action failed", {
+      requestId,
+      action: `${pluginId}/${actionName}`,
+      status: 500,
+      durationMs: performance.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return Response.json(
       { error: "Action failed", requestId },
       { status: 500, headers: { "x-request-id": requestId } },
@@ -468,6 +475,7 @@ async function renderPluginAdminPage(options: {
   readonly publication: EffectivePublication;
   readonly security: AdminSecurityConfig;
   readonly csrfToken: string;
+  readonly logger: Logger;
 }): Promise<Response> {
   const requestId = crypto.randomUUID();
   let data: unknown = null;
@@ -484,18 +492,17 @@ async function renderPluginAdminPage(options: {
           options.pluginDatabase,
           contentLookup,
           signal,
+          options.logger,
         ),
       );
       assertJsonSerializable(data);
     } catch (error) {
-      console.error(
-        JSON.stringify({
-          requestId,
-          page: options.page.pluginId,
-          status: 500,
-          error: error instanceof Error ? error.stack : String(error),
-        }),
-      );
+      options.logger.error("admin page data service failed", {
+        requestId,
+        page: options.page.pluginId,
+        status: 500,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return renderShell({
         title: "Error",
         Page: AdminErrorPage,

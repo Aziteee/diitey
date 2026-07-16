@@ -560,7 +560,7 @@ async function readServerAddress(process: SiteProcess): Promise<string> {
       throw new Error(`Server exited before listening.\n${output}${error}`);
     }
     output += decoder.decode(result.value, { stream: true });
-    const match = output.match(/Listening on (http:\/\/[^\s]+)/);
+    const match = output.match(/Listening on (https?:\/\/[^\s"]+)/);
     if (match?.[1]) {
       return match[1];
     }
