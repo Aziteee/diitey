@@ -42,7 +42,20 @@ const commentTreeNodeOutput = commentNodeOutput.extend({
   replies: z.array(commentNodeOutput),
 });
 
-const listOutput = z.array(commentTreeNodeOutput);
+const listOutput = z
+  .object({
+    items: z.array(commentTreeNodeOutput),
+    total: z.number().int().nonnegative(),
+    rootTotal: z.number().int().nonnegative(),
+    hasMore: z.boolean(),
+  })
+  .strict();
+
+const countsOutput = z
+  .object({
+    counts: z.record(z.string(), z.number().int().nonnegative()),
+  })
+  .strict();
 
 type ReplyTo = z.infer<typeof replyToOutput>;
 type CommentNode = z.infer<typeof commentNodeOutput>;
@@ -59,12 +72,38 @@ interface CommentRow {
   readonly createdAt: string;
 }
 
+const DEFAULT_LIST_LIMIT = 20;
+const MAX_LIST_LIMIT = 50;
+
 export default definePlugin({
   config: commentsPluginConfig,
   setup(config) {
     const listInput = z
       .object({
         contentId: z.string().trim().min(1),
+        limit: z
+          .number()
+          .int()
+          .positive()
+          .max(MAX_LIST_LIMIT)
+          .optional()
+          .default(DEFAULT_LIST_LIMIT),
+        offset: z.number().int().nonnegative().optional().default(0),
+      })
+      .strict();
+
+    const countsInput = z
+      .object({
+        contentIds: z
+          .array(
+            z.union([
+              z.string().trim().min(1),
+              z
+                .object({ id: z.string().trim().min(1) })
+                .passthrough(),
+            ]),
+          )
+          .max(200),
       })
       .strict();
 
@@ -181,8 +220,50 @@ export default definePlugin({
           input: listInput,
           output: listOutput,
           handler(input, { database }) {
+            const limit = input.limit;
+            const offset = input.offset;
+
+            const rootTotalRow = database
+              .query<{ count: number }, [string]>(
+                `SELECT COUNT(*) AS count
+                 FROM comments
+                 WHERE content_id = ? AND parent_id IS NULL`,
+              )
+              .get(input.contentId);
+            const rootTotal = Number(rootTotalRow?.count ?? 0);
+
+            const totalRow = database
+              .query<{ count: number }, [string]>(
+                `SELECT COUNT(*) AS count
+                 FROM comments
+                 WHERE content_id = ?`,
+              )
+              .get(input.contentId);
+            const total = Number(totalRow?.count ?? 0);
+
+            const rootIds = database
+              .query<{ id: number }, [string, number, number]>(
+                `SELECT id
+                 FROM comments
+                 WHERE content_id = ? AND parent_id IS NULL
+                 ORDER BY id ASC
+                 LIMIT ? OFFSET ?`,
+              )
+              .all(input.contentId, limit, offset)
+              .map((row) => row.id);
+
+            if (rootIds.length === 0) {
+              return {
+                items: [],
+                total,
+                rootTotal,
+                hasMore: offset + limit < rootTotal,
+              };
+            }
+
+            const placeholders = rootIds.map(() => "?").join(", ");
             const rows = database
-              .query<CommentRow, [string]>(
+              .query<CommentRow, (string | number)[]>(
                 `SELECT
                    id,
                    content_id AS contentId,
@@ -194,11 +275,56 @@ export default definePlugin({
                    created_at AS createdAt
                  FROM comments
                  WHERE content_id = ?
+                   AND (id IN (${placeholders}) OR parent_id IN (${placeholders}))
                  ORDER BY id ASC`,
               )
-              .all(input.contentId);
+              .all(input.contentId, ...rootIds, ...rootIds);
 
-            return buildCommentTree(rows);
+            return {
+              items: buildCommentTree(rows),
+              total,
+              rootTotal,
+              hasMore: offset + limit < rootTotal,
+            };
+          },
+        },
+
+        "comments.counts": {
+          input: countsInput,
+          output: countsOutput,
+          handler(input, { database }) {
+            const rawIds = input.contentIds as ReadonlyArray<
+              string | { readonly id: string }
+            >;
+            const contentIds = [
+              ...new Set(
+                rawIds.map((item) =>
+                  typeof item === "string" ? item : item.id,
+                ),
+              ),
+            ];
+            const counts: Record<string, number> = Object.create(null);
+            for (const id of contentIds) {
+              counts[id] = 0;
+            }
+            if (contentIds.length === 0) {
+              return { counts };
+            }
+
+            const placeholders = contentIds.map(() => "?").join(", ");
+            const rows = database
+              .query<{ contentId: string; count: number }, string[]>(
+                `SELECT content_id AS contentId, COUNT(*) AS count
+                 FROM comments
+                 WHERE content_id IN (${placeholders})
+                 GROUP BY content_id`,
+              )
+              .all(...contentIds);
+
+            for (const row of rows) {
+              counts[row.contentId] = Number(row.count);
+            }
+            return { counts };
           },
         },
 
@@ -398,6 +524,18 @@ export default definePlugin({
       },
 
       actions: {
+        "comments.list": {
+          service: "comments.list",
+          bodyLimitBytes: 512,
+          rateLimit: { limit: 60, windowMs: 60_000 },
+          timeoutMs: 2_000,
+        },
+        "comments.counts": {
+          service: "comments.counts",
+          bodyLimitBytes: 8_192,
+          rateLimit: { limit: 60, windowMs: 60_000 },
+          timeoutMs: 2_000,
+        },
         "comments.create": {
           service: "comments.create",
           bodyLimitBytes: 4_096,

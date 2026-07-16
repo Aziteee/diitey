@@ -4,6 +4,7 @@ import {
   useThemeConfig,
 } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
+import type { CommentCounts } from "../shared/comments.ts";
 import { NoteList } from "../shared/note-list.tsx";
 import { PostList } from "../shared/post-list.tsx";
 
@@ -12,6 +13,7 @@ interface HomeProps {
   readonly posts: readonly ContentRecord[];
   readonly notes: readonly ContentRecord[];
   readonly links: readonly ContentRecord[];
+  readonly commentCounts: CommentCounts;
   readonly pagination: Pagination;
 }
 
@@ -20,6 +22,7 @@ export default function Home({
   posts,
   notes,
   links,
+  commentCounts,
   pagination,
 }: HomeProps) {
   const config = useThemeConfig<VoidThemeConfig>();
@@ -62,7 +65,7 @@ export default function Home({
             </a>
           ) : null}
         </div>
-        <NoteList notes={recentNotes} />
+        <NoteList notes={recentNotes} commentCounts={commentCounts.counts} />
       </section>
 
       {hasLinks ? (

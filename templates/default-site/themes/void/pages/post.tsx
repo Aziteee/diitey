@@ -1,16 +1,14 @@
 import { Island, type ContentRecord, useThemeConfig } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
-import type { CommentTreeNode } from "../shared/comments.ts";
 import { formatDate } from "../shared/date.ts";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import Comments from "../islands/comments.tsx";
 
 interface PostProps {
   readonly post: ContentRecord;
-  readonly comments: readonly CommentTreeNode[];
 }
 
-export default function Post({ post, comments }: PostProps) {
+export default function Post({ post }: PostProps) {
   const config = useThemeConfig<VoidThemeConfig>();
   const title = String(post.attributes.title);
 
@@ -66,7 +64,7 @@ export default function Post({ post, comments }: PostProps) {
       <Island
         name="comments"
         component={Comments}
-        props={{ contentId: post.id, comments }}
+        props={{ contentId: post.id, mode: "panel" as const }}
       />
 
       <Island

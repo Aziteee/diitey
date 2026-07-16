@@ -4,14 +4,20 @@ import {
   useThemeConfig,
 } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
+import type { CommentCounts } from "../shared/comments.ts";
 import { NoteList } from "../shared/note-list.tsx";
 
 interface NotesProps {
   readonly notes: readonly ContentRecord[];
+  readonly commentCounts: CommentCounts;
   readonly pagination: Pagination;
 }
 
-export default function Notes({ notes, pagination }: NotesProps) {
+export default function Notes({
+  notes,
+  commentCounts,
+  pagination,
+}: NotesProps) {
   const config = useThemeConfig<VoidThemeConfig>();
 
   return (
@@ -42,7 +48,7 @@ export default function Notes({ notes, pagination }: NotesProps) {
         <h1 id="notes-heading" class="section-title mb-3">
           Notes
         </h1>
-        <NoteList notes={notes} />
+        <NoteList notes={notes} commentCounts={commentCounts.counts} />
       </section>
 
       {pagination.prevHref || pagination.nextHref ? (

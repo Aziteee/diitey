@@ -16,3 +16,14 @@ export interface CommentNode {
 export interface CommentTreeNode extends CommentNode {
   readonly replies: readonly CommentNode[];
 }
+
+export interface CommentListPage {
+  readonly items: readonly CommentTreeNode[];
+  readonly total: number;
+  readonly rootTotal: number;
+  readonly hasMore: boolean;
+}
+
+export interface CommentCounts {
+  readonly counts: Readonly<Record<string, number>>;
+}

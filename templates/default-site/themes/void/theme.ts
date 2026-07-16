@@ -80,6 +80,12 @@ export default defineTheme({
               collection: "links",
               limit: 1,
             },
+            commentCounts: {
+              service: "comments.counts",
+              input: {
+                contentIds: { from: "notes" },
+              },
+            },
           }),
         ),
         route(
@@ -98,12 +104,6 @@ export default defineTheme({
               collection: "posts",
               match: "posts/:slug.md",
             },
-            comments: {
-              service: "comments.list",
-              input: {
-                contentId: { from: "post.id" },
-              },
-            },
           }),
         ),
         route(
@@ -112,6 +112,12 @@ export default defineTheme({
             notes: {
               collection: "notes",
               paginate: config.notesPerPage,
+            },
+            commentCounts: {
+              service: "comments.counts",
+              input: {
+                contentIds: { from: "notes" },
+              },
             },
           }),
         ),

@@ -38,9 +38,17 @@ plugins: [
 
 ### `comments.list`
 
-输入：`{ contentId: string }`
+输入：
 
-输出：两层树（公开字段不含 email）：
+```ts
+{
+  contentId: string;
+  limit?: number;   // 默认 20，最大 50；按根评论分页
+  offset?: number;  // 默认 0
+}
+```
+
+输出（公开字段不含 email）：
 
 ```ts
 type ReplyTo = { id: number; authorName: string };
@@ -56,10 +64,22 @@ type CommentNode = {
 };
 
 type CommentTreeNode = CommentNode & { replies: CommentNode[] };
-// 返回 CommentTreeNode[]
+
+{
+  items: CommentTreeNode[]; // 本页根评论 + 各自全部回复；根按 id ASC
+  total: number;            // 该内容下全部评论条数（根+回复）
+  rootTotal: number;        // 根评论总数
+  hasMore: boolean;
+}
 ```
 
 悬空 `replyToId`（目标已不存在）在 list 中降级为 `replyTo: null`。
+
+### `comments.counts`
+
+输入：`{ contentIds: string[] | { id: string }[] }`（最多 200；对象形式便于 theme 直接 `from: "notes"`）
+
+输出：`{ counts: Record<string, number> }` — 每个 contentId 的评论总条数（无评论为 0）。
 
 ### `comments.create`
 
@@ -82,7 +102,24 @@ type CommentTreeNode = CommentNode & { replies: CommentNode[] };
 
 ## Action
 
+公开：
+
 ```ts
+// 分页列表
+await fetch("/_action/comments.list", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ contentId: "void-first-entry", limit: 20, offset: 0 }),
+});
+
+// 批量计数
+await fetch("/_action/comments.counts", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ contentIds: ["void-first-entry", "void-note-coffee"] }),
+});
+
+// 创建
 await fetch("/_action/comments.create", {
   method: "POST",
   headers: { "content-type": "application/json" },
@@ -97,16 +134,18 @@ await fetch("/_action/comments.create", {
 
 ## 主题接入
 
-`void` 主题已在文章页绑定：
+`void` 主题：
+
+- 文章页：comments island 挂载后 client fetch `comments.list`，提交后本地插入，不 reload
+- Notes / 首页 notes：SSR `comments.counts` 注入徽章数量；折叠按钮展开后再 fetch 列表
 
 ```ts
-comments: {
-  service: "comments.list",
-  input: { contentId: { from: "post.id" } },
+// notes 页
+commentCounts: {
+  service: "comments.counts",
+  input: { contentIds: { from: "notes" } },
 }
 ```
-
-列表由 SSR 注入 island props；提交表单在主题 island 中调用 `/_action/comments.create`，成功后刷新页面。
 
 ## Admin
 
