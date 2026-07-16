@@ -31,6 +31,13 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
     ? parsePublicOrigin(options.publicOrigin, "public origin")
     : null;
 
+  logger.info("site starting", {
+    root: options.root,
+    host,
+    port: options.port,
+    adminEnabled: adminToken !== null,
+  });
+
   const security = resolveStartupSecurity({
     host,
     port: options.port,
@@ -52,6 +59,9 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
         clientAddress: server.requestIP(request)?.address,
       });
     },
+  });
+  logger.info("public server bound", {
+    origin: publicServer.url.origin,
   });
 
   if (
@@ -103,6 +113,7 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
     await publication.close();
     throw new Error("Management server did not expose a port");
   }
+  logger.info("management server ready", { adminPort });
 
   try {
     await writeRuntimeInfo(options.root, {
@@ -110,6 +121,7 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
       adminPort,
       token,
     });
+    logger.info("runtime info written", { pid: process.pid });
   } catch (error) {
     adminServer.stop(true);
     publicServer.stop(true);

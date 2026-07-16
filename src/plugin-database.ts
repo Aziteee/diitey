@@ -43,10 +43,14 @@ function applyPendingPluginMigrations(
   const databasePlugins = plugins.filter(
     (plugin) => plugin.schemaVersion !== undefined,
   );
-  if (databasePlugins.length === 0) return;
+  if (databasePlugins.length === 0) {
+    logger.info("plugin migrations skipped", { pluginCount: 0 });
+    return;
+  }
 
   logger.info("plugin migrations started", {
     pluginCount: databasePlugins.length,
+    plugins: databasePlugins.map((plugin) => plugin.id).filter(Boolean),
   });
   try {
     const migrate = database.transaction(() => {
