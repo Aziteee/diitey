@@ -229,57 +229,7 @@ function CommentPanel({
         </header>
       ) : null}
 
-      {loading ? (
-        <p class="comment-status">Loading comments…</p>
-      ) : loadError ? (
-        <p class="comment-status" role="alert">
-          {loadError}
-        </p>
-      ) : items.length > 0 ? (
-        <ol class="list-reset">
-          {items.map((root, index) => (
-            <li key={root.id} class={index === 0 ? "" : "comment-root"}>
-              <CommentItem
-                comment={root}
-                onReply={() => replyToRoot(root)}
-              />
-              {root.replies.length > 0 ? (
-                <ol class="comment-replies">
-                  {root.replies.map((child, replyIndex) => (
-                    <li
-                      key={child.id}
-                      class={replyIndex === 0 ? "" : "mt-5"}
-                    >
-                      <CommentItem
-                        comment={child}
-                        onReply={() => replyToComment(root, child)}
-                      />
-                    </li>
-                  ))}
-                </ol>
-              ) : null}
-            </li>
-          ))}
-        </ol>
-      ) : null}
-
-      {!loading && hasMore ? (
-        <div class="comment-load-more">
-          <button
-            type="button"
-            class="btn-ghost"
-            disabled={loadingMore}
-            onClick={() => void loadMore()}
-          >
-            {loadingMore ? "Loading…" : "加载更多"}
-          </button>
-        </div>
-      ) : null}
-
-      <form
-        class="mt-5 border-t border-neutral-200 pt-5 dark:border-neutral-800"
-        onSubmit={submit}
-      >
+      <form class="comment-form" onSubmit={submit}>
         {reply ? (
           <div class="comment-form-reply">
             <span>
@@ -351,6 +301,53 @@ function CommentPanel({
           </button>
         </div>
       </form>
+
+      {loading ? (
+        <p class="comment-status mt-5">Loading comments…</p>
+      ) : loadError ? (
+        <p class="comment-status mt-5" role="alert">
+          {loadError}
+        </p>
+      ) : items.length > 0 ? (
+        <ol class="list-reset mt-5 border-t border-neutral-200 pt-5 dark:border-neutral-800">
+          {items.map((root, index) => (
+            <li key={root.id} class={index === 0 ? "" : "comment-root"}>
+              <CommentItem
+                comment={root}
+                onReply={() => replyToRoot(root)}
+              />
+              {root.replies.length > 0 ? (
+                <ol class="comment-replies">
+                  {root.replies.map((child, replyIndex) => (
+                    <li
+                      key={child.id}
+                      class={replyIndex === 0 ? "" : "mt-5"}
+                    >
+                      <CommentItem
+                        comment={child}
+                        onReply={() => replyToComment(root, child)}
+                      />
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {!loading && hasMore ? (
+        <div class="comment-load-more">
+          <button
+            type="button"
+            class="btn-ghost"
+            disabled={loadingMore}
+            onClick={() => void loadMore()}
+          >
+            {loadingMore ? "Loading…" : "加载更多"}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
