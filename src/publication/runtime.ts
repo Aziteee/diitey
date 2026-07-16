@@ -83,17 +83,12 @@ export async function openPublication(options: {
   readonly logger?: Logger;
 }): Promise<PublicationRuntime> {
   const log = options.logger ?? createSilentLogger();
-  log.info("opening publication", { root: options.root });
   let program: SiteProgram;
   try {
     program = await compileSiteProgram(options.root);
     log.info("site program compiled", {
       programRevision: program.programRevision,
       pluginCount: program.pluginDefinitions.length,
-      routeCount: program.pagePlans.length,
-      islandCount: Object.keys(program.islands.manifest).length,
-      hasThemeStyles: program.styles.stylesheetPath !== null,
-      reloadTimeoutMs: program.reloadTimeoutMs,
     });
   } catch (error) {
     log.error("site program compilation failed", {
@@ -114,36 +109,19 @@ export async function openPublication(options: {
     siteRoot: options.root,
     plugins: program.pluginEntries,
   });
-  log.info("admin program compiled", {
-    enabled: security.enabled,
-    pluginPageCount: adminProgram.pages.length,
-  });
   const content = await buildContentSnapshot(program);
-  log.info("content snapshot built", {
-    contentCount: content.byId.size,
-  });
   let publication = buildEffectivePublication(program, content);
-  log.info("effective publication ready", {
-    snapshotVersion: publication.version,
-    routeCount: publication.routesByPath.size,
-  });
   const snapshotWorker = await SnapshotWorker.create(
     options.root,
     program.programRevision,
     program.islands,
     program.styles,
   );
-  log.info("snapshot worker ready", {
-    programRevision: program.programRevision,
-  });
   const pluginDatabase = await preparePluginDatabase(
     options.root,
     program.pluginDefinitions,
     log,
   );
-  log.info("publication runtime ready", {
-    snapshotVersion: publication.version,
-  });
 
   let lastAttempt: BuildAttempt = {
     buildId: publication.version,
