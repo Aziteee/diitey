@@ -439,7 +439,7 @@
   }
 
   .post-content > p:first-of-type {
-    margin-bottom: 0;
+    margin-bottom: 1.05em;
   }
 
   .post-content > p:first-of-type + :is(h2, h3, h4) {
