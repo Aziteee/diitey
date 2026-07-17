@@ -1,6 +1,11 @@
 import { readdir } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { buildContentRecord } from "../content.ts";
+import {
+  contentResourceCacheRoot,
+  createContentResourceBuilder,
+  type ContentResource,
+} from "./content-resources.ts";
 import type {
   CollectionDefinition,
   ContentRecord,
@@ -13,6 +18,7 @@ export interface ContentSnapshot {
   readonly version: string;
   readonly publishedAt: string;
   readonly records: readonly ContentRecord[];
+  readonly resources: readonly ContentResource[];
   readonly byId: ReadonlyMap<string, ContentRecord>;
   readonly byCollection: Readonly<Record<string, readonly ContentRecord[]>>;
 }
@@ -22,22 +28,28 @@ export async function buildContentSnapshot(
   version: string = crypto.randomUUID(),
 ): Promise<ContentSnapshot> {
   const sourcePaths = await scanContentFiles(program.contentRoot);
+  const contentResources = await createContentResourceBuilder({
+    contentRoot: program.contentRoot,
+    cacheRoot: contentResourceCacheRoot(program.root),
+  });
   const records = await Promise.all(
     sourcePaths.map((sourcePath) =>
       buildContentRecord(
         resolve(program.contentRoot, ...sourcePath.split("/")),
         sourcePath,
         program.markdown,
+        contentResources,
       ),
     ),
   );
-  return assembleContentSnapshot(program, records, version);
+  return assembleContentSnapshot(program, records, version, contentResources.resources);
 }
 
 export function assembleContentSnapshot(
   program: SiteProgram,
   records: readonly ContentRecord[],
   version: string = crypto.randomUUID(),
+  resources: readonly ContentResource[] = [],
 ): ContentSnapshot {
   validateUniqueContentIds(records);
   const selectedByCollection = selectCollections(
@@ -67,11 +79,15 @@ export function assembleContentSnapshot(
       }),
     ),
   );
+  const publishedResources = Object.freeze(
+    resources.map((resource) => Object.freeze({ ...resource })),
+  );
 
   return Object.freeze({
     version,
     publishedAt: new Date().toISOString(),
     records: publishedRecords,
+    resources: publishedResources,
     byId: Object.freeze(
       new Map(publishedRecords.map((record) => [record.id, record])),
     ),

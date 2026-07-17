@@ -1,4 +1,5 @@
 import type { ContentSnapshot } from "./content-snapshot.ts";
+import type { ContentResource } from "./content-resources.ts";
 import type {
   CompiledPagePlan,
   PublishedRouteEntry,
@@ -12,6 +13,7 @@ export interface EffectivePublication {
   readonly programRevision: string;
   readonly content: ContentSnapshot;
   readonly contentIds: ReadonlySet<string>;
+  readonly contentResourcesByPath: ReadonlyMap<string, ContentResource>;
   readonly routesByPath: ReadonlyMap<string, PublishedRouteEntry>;
   readonly plansById: ReadonlyMap<string, CompiledPagePlan>;
   readonly islandAssetsByPath: ReadonlyMap<string, string>;
@@ -58,6 +60,13 @@ export function materializePublication(
   const plansById = new Map(
     program.pagePlans.map((plan) => [plan.id, plan] as const),
   );
+  const contentResourcesByPath = new Map<string, ContentResource>();
+  for (const resource of candidate.content.resources) {
+    if (contentResourcesByPath.has(resource.publicPath)) {
+      throw new Error(`Duplicate content resource URL ${resource.publicPath}`);
+    }
+    contentResourcesByPath.set(resource.publicPath, resource);
+  }
   for (const entry of candidate.routes) {
     if (!plansById.has(entry.planId)) {
       throw new Error(`Unknown page plan: ${entry.planId}`);
@@ -79,6 +88,7 @@ export function materializePublication(
     contentIds: Object.freeze(
       new Set(candidate.content.records.map((record) => record.id)),
     ),
+    contentResourcesByPath: Object.freeze(contentResourcesByPath),
     routesByPath: Object.freeze(routesByPath),
     plansById,
     islandAssetsByPath: Object.freeze(islandAssetsByPath),
@@ -108,10 +118,14 @@ function freezeContentSnapshot(content: ContentSnapshot): ContentSnapshot {
       }),
     ),
   );
+  const resources = Object.freeze(
+    content.resources.map((resource) => Object.freeze({ ...resource })),
+  );
   return Object.freeze({
     version: content.version,
     publishedAt: content.publishedAt,
     records,
+    resources,
     byId: Object.freeze(
       new Map(records.map((record) => [record.id, record] as const)),
     ),

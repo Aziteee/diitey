@@ -7,6 +7,7 @@ import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
 import { parseDocument } from "yaml";
 import type { ContentRecord } from "./index.ts";
+import type { ContentResourceBuilder } from "./publication/content-resources.ts";
 
 const frontMatterPattern = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 
@@ -17,6 +18,7 @@ export async function buildContentRecord(
     readonly remarkPlugins: readonly Pluggable[];
     readonly rehypePlugins: readonly Pluggable[];
   },
+  contentResources?: ContentResourceBuilder,
 ): Promise<ContentRecord> {
   const markdown = await readFile(filePath, "utf8");
   const frontMatter = markdown.match(frontMatterPattern);
@@ -39,10 +41,15 @@ export async function buildContentRecord(
     throw new Error(`${sourcePath}: created must be a valid ISO 8601 date or datetime`);
   }
 
-  const rendered = await unified()
+  const processor = unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"])
-    .use(remarkGfm)
+    .use(remarkGfm);
+  if (contentResources) {
+    processor.use([contentResources.remarkPlugin(filePath)]);
+  }
+
+  const rendered = await processor
     .use([...extensions.remarkPlugins])
     .use(remarkRehype, { allowDangerousHtml: true })
     .use([...extensions.rehypePlugins])

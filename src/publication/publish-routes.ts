@@ -134,6 +134,7 @@ function applyCanonicalUrls(
     version: content.version,
     publishedAt: content.publishedAt,
     records,
+    resources: content.resources,
     byId: Object.freeze(
       new Map(records.map((record) => [record.id, record] as const)),
     ),

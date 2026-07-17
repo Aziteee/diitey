@@ -20,6 +20,11 @@ import type { Logger } from "../logger.ts";
 import { createSilentLogger } from "../silent-logger.ts";
 import { buildContentSnapshot } from "./content-snapshot.ts";
 import {
+  collectContentResourceCache,
+  contentResourceCacheRoot,
+  type ContentResource,
+} from "./content-resources.ts";
+import {
   buildEffectivePublication,
   materializePublication,
   type EffectivePublication,
@@ -112,6 +117,7 @@ export async function openPublication(options: {
   });
   const content = await buildContentSnapshot(program);
   let publication = buildEffectivePublication(program, content);
+  await collectPublishedContentResources(program, publication, log);
   const snapshotWorker = await SnapshotWorker.create(
     options.root,
     program.programRevision,
@@ -173,6 +179,16 @@ export async function openPublication(options: {
           context.clientAddress ?? "unknown",
           log,
         );
+      }
+
+      if (url.pathname.startsWith("/assets/content/")) {
+        const resource = requestPublication.contentResourcesByPath.get(
+          url.pathname,
+        );
+        if (!resource) {
+          return new Response("Not Found", { status: 404 });
+        }
+        return serveContentResource(request, resource, log);
       }
 
       if (request.method !== "GET") {
@@ -313,6 +329,7 @@ export async function openPublication(options: {
           );
         }
         publication = materializePublication(program, candidate);
+        await collectPublishedContentResources(program, publication, log);
         lastAttempt = { buildId, result: "succeeded" };
         log.info("content reload succeeded", {
           buildId,
@@ -359,6 +376,59 @@ export async function openPublication(options: {
       pluginDatabase.close();
     },
   };
+}
+
+async function serveContentResource(
+  request: Request,
+  resource: ContentResource,
+  log: Logger,
+): Promise<Response> {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: { allow: "GET, HEAD" },
+    });
+  }
+
+  const file = Bun.file(resource.cachePath);
+  if (!(await file.exists())) {
+    log.error("content resource cache artifact unavailable", {
+      publicPath: resource.publicPath,
+      digest: resource.digest,
+    });
+    return new Response("Internal Server Error", { status: 500 });
+  }
+
+  const headers = {
+    "content-type": resource.mediaType,
+    "content-length": String(resource.byteLength),
+    etag: `"${resource.digest}"`,
+    "cache-control": "public, max-age=31536000, immutable",
+    "x-content-type-options": "nosniff",
+  };
+  if (request.method === "HEAD") {
+    return new Response(null, { headers });
+  }
+  return new Response(file, { headers });
+}
+
+async function collectPublishedContentResources(
+  program: SiteProgram,
+  publication: EffectivePublication,
+  log: Logger,
+): Promise<void> {
+  try {
+    await collectContentResourceCache({
+      cacheRoot: contentResourceCacheRoot(program.root),
+      referencedDigests: new Set(
+        publication.content.resources.map((resource) => resource.digest),
+      ),
+    });
+  } catch (error) {
+    log.error("content resource cache cleanup failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 async function handleAction(
