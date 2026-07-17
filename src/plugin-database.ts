@@ -102,7 +102,7 @@ function applyPendingPluginMigrations(
               `Missing migration history: ${pluginId}/${migration.id}`,
             );
           }
-          database.exec(migration.sql);
+          database.run(migration.sql);
           database
             .query(
               "INSERT INTO diitey_plugin_migrations (plugin_id, migration_id, schema_version, checksum, executed_at) VALUES (?, ?, ?, ?, ?)",
@@ -174,7 +174,7 @@ function validateMigrations(
 }
 
 function ensureMetadata(database: Database): void {
-  database.exec(`
+  database.run(`
     CREATE TABLE IF NOT EXISTS diitey_plugin_migrations (
       plugin_id TEXT NOT NULL,
       migration_id TEXT NOT NULL,
