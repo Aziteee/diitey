@@ -384,8 +384,12 @@
   }
 
   .content h1 {
-    @apply mb-4 font-serif text-5xl font-medium leading-[1.1] tracking-[-0.03em] sm:text-6xl;
+    @apply mb-4 font-serif text-[1.75rem] font-medium leading-[1.2] tracking-[-0.01em] sm:text-[2rem];
     color: var(--heading);
+  }
+
+  .home-content h1 {
+    @apply mb-4 font-serif text-5xl font-medium leading-[1.1] tracking-[-0.03em] sm:text-6xl;
   }
 
   .content h2 {

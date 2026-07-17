@@ -23,4 +23,5 @@ bun run reload
 
 - 长文放在 `content/posts/`，每个文件必须声明 `id`、`created` 和 `title`；设置 `draft: true` 可使其不被发布。
 - 短笔记放在 `content/notes/`，只需 `id` 和 `created`（无需标题）；完整列表在 `/notes`。
+- 固定页面放在 `content/pages/`，通过 `/:slug` 发布；可选 `comments: true` 开启评论。
 - 友链/项目链接写在 `content/links.md`：每行 `- [标题](url) - 描述`；正文为空或不存在时主页不显示 Links 板块。

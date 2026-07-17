@@ -60,6 +60,15 @@ export default defineTheme({
             title: "string?",
           },
         }),
+        pages: collection({
+          from: "pages/*.md",
+          where: { draft: { not: true } },
+          schema: {
+            title: "string?",
+            draft: "boolean?",
+            comments: "boolean?",
+          },
+        }),
       },
       routes: [
         route(
@@ -118,6 +127,15 @@ export default defineTheme({
               input: {
                 contentIds: { from: "notes" },
               },
+            },
+          }),
+        ),
+        route(
+          "/:slug",
+          page("page", {
+            page: {
+              collection: "pages",
+              match: "pages/:slug.md",
             },
           }),
         ),
