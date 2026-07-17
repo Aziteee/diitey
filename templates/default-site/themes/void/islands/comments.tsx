@@ -22,6 +22,42 @@ interface ReplyTarget {
 type CountSetter = (value: number | ((prev: number) => number)) => void;
 
 const DEFAULT_PAGE_SIZE = 20;
+const COMMENT_IDENTITY_KEY = "diitey.comments.identity";
+
+interface CommentIdentity {
+  readonly authorName: string;
+  readonly email: string;
+  readonly website: string;
+}
+
+function loadCommentIdentity(): CommentIdentity {
+  try {
+    const raw = localStorage.getItem(COMMENT_IDENTITY_KEY);
+    if (!raw) {
+      return { authorName: "", email: "", website: "" };
+    }
+    const parsed = JSON.parse(raw) as Partial<CommentIdentity> | null;
+    if (!parsed || typeof parsed !== "object") {
+      return { authorName: "", email: "", website: "" };
+    }
+    return {
+      authorName:
+        typeof parsed.authorName === "string" ? parsed.authorName : "",
+      email: typeof parsed.email === "string" ? parsed.email : "",
+      website: typeof parsed.website === "string" ? parsed.website : "",
+    };
+  } catch {
+    return { authorName: "", email: "", website: "" };
+  }
+}
+
+function saveCommentIdentity(identity: CommentIdentity): void {
+  try {
+    localStorage.setItem(COMMENT_IDENTITY_KEY, JSON.stringify(identity));
+  } catch {
+    // ignore quota / private mode
+  }
+}
 
 export default function Comments({
   contentId,
@@ -90,12 +126,27 @@ function CommentPanel({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [authorName, setAuthorName] = useState("");
   const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState("");
+  const [identityReady, setIdentityReady] = useState(false);
   const [body, setBody] = useState("");
   const [reply, setReply] = useState<ReplyTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const hasMore = serverFetched < serverRootTotal;
+
+  useEffect(() => {
+    const identity = loadCommentIdentity();
+    setAuthorName(identity.authorName);
+    setEmail(identity.email);
+    setWebsite(identity.website);
+    setIdentityReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!identityReady) return;
+    saveCommentIdentity({ authorName, email, website });
+  }, [authorName, email, website, identityReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +227,8 @@ function CommentPanel({
     };
     const trimmedEmail = email.trim();
     if (trimmedEmail) payload.email = trimmedEmail;
+    const trimmedWebsite = website.trim();
+    if (trimmedWebsite) payload.website = trimmedWebsite;
 
     try {
       const response = await fetch("/_action/comments.create", {
@@ -244,7 +297,7 @@ function CommentPanel({
           </div>
         ) : null}
 
-        <div class="grid gap-3.5 sm:grid-cols-2">
+        <div class="grid gap-3.5 sm:grid-cols-3">
           <label class="field">
             <span class="field-label">Name</span>
             <input
@@ -269,6 +322,19 @@ function CommentPanel({
               placeholder="optional"
               value={email}
               onInput={(event) => setEmail(event.currentTarget.value)}
+            />
+          </label>
+          <label class="field">
+            <span class="field-label">Website</span>
+            <input
+              class="input"
+              name="website"
+              type="url"
+              maxLength={500}
+              autoComplete="url"
+              placeholder="optional"
+              value={website}
+              onInput={(event) => setWebsite(event.currentTarget.value)}
             />
           </label>
         </div>
@@ -362,7 +428,18 @@ function CommentItem({
   return (
     <article id={`comment-${comment.id}`}>
       <header class="mb-1.5 flex flex-wrap items-baseline gap-3">
-        <span class="comment-author">{comment.authorName}</span>
+        {comment.website ? (
+          <a
+            class="comment-author comment-author-link"
+            href={comment.website}
+            target="_blank"
+            rel="noopener noreferrer nofollow ugc"
+          >
+            {comment.authorName}
+          </a>
+        ) : (
+          <span class="comment-author">{comment.authorName}</span>
+        )}
         <time class="comment-time" datetime={comment.createdAt}>
           {formatDate(comment.createdAt)}
         </time>

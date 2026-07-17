@@ -21,6 +21,8 @@ const replyToOutput = z
   })
   .strict();
 
+const websiteOutput = z.string().nullable();
+
 const commentNodeOutput = z
   .object({
     id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -33,6 +35,7 @@ const commentNodeOutput = z
       .nullable(),
     replyTo: replyToOutput.nullable(),
     authorName: z.string(),
+    website: websiteOutput,
     body: z.string(),
     createdAt: z.string(),
   })
@@ -68,9 +71,40 @@ interface CommentRow {
   readonly replyToId: number | null;
   readonly authorName: string;
   readonly email: string | null;
+  readonly website: string | null;
   readonly body: string;
   readonly createdAt: string;
 }
+
+const COMMENT_ROW_SELECT = `
+  id,
+  content_id AS contentId,
+  parent_id AS parentId,
+  reply_to_id AS replyToId,
+  author_name AS authorName,
+  email,
+  website,
+  body,
+  created_at AS createdAt
+`;
+
+const optionalWebsite = z
+  .union([
+    z
+      .string()
+      .trim()
+      .max(500)
+      .url()
+      .refine(
+        (value) =>
+          value.startsWith("https://") || value.startsWith("http://"),
+        "website must be an http(s) URL",
+      ),
+    z.literal(""),
+    z.null(),
+  ])
+  .optional()
+  .transform((value) => (value === "" || value == null ? null : value));
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 50;
@@ -141,6 +175,7 @@ export default definePlugin({
           .transform((value) =>
             value === "" || value == null ? null : value,
           ),
+        website: optionalWebsite,
         body: z.string().trim().min(1).max(config.maxBodyLength),
       })
       .strict();
@@ -163,6 +198,7 @@ export default definePlugin({
           .nullable(),
         authorName: z.string(),
         email: z.string().nullable(),
+        website: websiteOutput,
         body: z.string(),
         createdAt: z.string(),
         contentUrl: z.string().nullable(),
@@ -184,8 +220,8 @@ export default definePlugin({
 
     return {
       id: "comments",
-      version: "1.0.0",
-      schemaVersion: 1,
+      version: "1.1.0",
+      schemaVersion: 2,
 
       adminPage: {
         component: "./admin.tsx",
@@ -211,6 +247,13 @@ export default definePlugin({
             );
             CREATE INDEX comments_content_id_idx ON comments (content_id);
             CREATE INDEX comments_parent_id_idx ON comments (parent_id);
+          `,
+        },
+        {
+          id: "0002-add-website",
+          schemaVersion: 2,
+          sql: `
+            ALTER TABLE comments ADD COLUMN website TEXT;
           `,
         },
       ],
@@ -264,15 +307,7 @@ export default definePlugin({
             const placeholders = rootIds.map(() => "?").join(", ");
             const rows = database
               .query<CommentRow, (string | number)[]>(
-                `SELECT
-                   id,
-                   content_id AS contentId,
-                   parent_id AS parentId,
-                   reply_to_id AS replyToId,
-                   author_name AS authorName,
-                   email,
-                   body,
-                   created_at AS createdAt
+                `SELECT ${COMMENT_ROW_SELECT}
                  FROM comments
                  WHERE content_id = ?
                    AND (id IN (${placeholders}) OR parent_id IN (${placeholders}))
@@ -334,15 +369,7 @@ export default definePlugin({
           handler(_input, { database, content }) {
             const rows = database
               .query<CommentRow, []>(
-                `SELECT
-                   id,
-                   content_id AS contentId,
-                   parent_id AS parentId,
-                   reply_to_id AS replyToId,
-                   author_name AS authorName,
-                   email,
-                   body,
-                   created_at AS createdAt
+                `SELECT ${COMMENT_ROW_SELECT}
                  FROM comments
                  ORDER BY id DESC
                  LIMIT 500`,
@@ -360,6 +387,7 @@ export default definePlugin({
                 parentId: row.parentId,
                 authorName: row.authorName,
                 email: row.email,
+                website: row.website ?? null,
                 body: row.body,
                 createdAt: row.createdAt,
                 contentUrl: summary?.url ?? null,
@@ -424,15 +452,7 @@ export default definePlugin({
             } else {
               const parent = database
                 .query<CommentRow, [number]>(
-                  `SELECT
-                     id,
-                     content_id AS contentId,
-                     parent_id AS parentId,
-                     reply_to_id AS replyToId,
-                     author_name AS authorName,
-                     email,
-                     body,
-                     created_at AS createdAt
+                  `SELECT ${COMMENT_ROW_SELECT}
                    FROM comments
                    WHERE id = ?`,
                 )
@@ -450,15 +470,7 @@ export default definePlugin({
               if (replyToId !== null) {
                 const target = database
                   .query<CommentRow, [number]>(
-                    `SELECT
-                       id,
-                       content_id AS contentId,
-                       parent_id AS parentId,
-                       reply_to_id AS replyToId,
-                       author_name AS authorName,
-                       email,
-                       body,
-                       created_at AS createdAt
+                    `SELECT ${COMMENT_ROW_SELECT}
                      FROM comments
                      WHERE id = ?`,
                   )
@@ -487,6 +499,7 @@ export default definePlugin({
               input.email === "" || input.email == null
                 ? null
                 : input.email;
+            const website = input.website ?? null;
 
             const result = database
               .query(
@@ -496,9 +509,10 @@ export default definePlugin({
                    reply_to_id,
                    author_name,
                    email,
+                   website,
                    body,
                    created_at
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
               )
               .run(
                 input.contentId,
@@ -506,6 +520,7 @@ export default definePlugin({
                 replyToId,
                 input.authorName,
                 email,
+                website,
                 input.body,
                 createdAt,
               );
@@ -516,6 +531,7 @@ export default definePlugin({
               parentId,
               replyTo,
               authorName: input.authorName,
+              website,
               body: input.body,
               createdAt,
             } satisfies CommentNode;
@@ -606,6 +622,7 @@ function toPublicNode(row: CommentRow, replyTo: ReplyTo | null): CommentNode {
     parentId: row.parentId,
     replyTo,
     authorName: row.authorName,
+    website: row.website ?? null,
     body: row.body,
     createdAt: row.createdAt,
   };

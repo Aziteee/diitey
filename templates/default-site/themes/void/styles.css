@@ -368,6 +368,10 @@
     @apply font-sans text-sm font-medium tracking-[-0.01em] text-neutral-950 dark:text-neutral-100;
   }
 
+  .comment-author-link {
+    @apply no-underline hover:opacity-70;
+  }
+
   .comment-time {
     @apply font-sans text-xs tracking-[0.04em] tabular-nums text-neutral-500 dark:text-neutral-500;
   }

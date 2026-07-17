@@ -9,6 +9,7 @@ export interface CommentNode {
   readonly parentId: number | null;
   readonly replyTo: CommentReplyTo | null;
   readonly authorName: string;
+  readonly website: string | null;
   readonly body: string;
   readonly createdAt: string;
 }

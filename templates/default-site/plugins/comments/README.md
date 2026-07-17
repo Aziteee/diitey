@@ -32,7 +32,7 @@ plugins: [
 ],
 ```
 
-配置变更需重启。首次启动会应用迁移 `0001-create-comments`。
+配置变更需重启。首次启动会应用迁移 `0001-create-comments`；已有库会再应用 `0002-add-website`。
 
 ## 服务
 
@@ -59,6 +59,7 @@ type CommentNode = {
   parentId: number | null;
   replyTo: ReplyTo | null;
   authorName: string;
+  website: string | null;
   body: string;
   createdAt: string;
 };
@@ -92,6 +93,7 @@ type CommentTreeNode = CommentNode & { replies: CommentNode[] };
   replyToId?: number | null;  // 默认 null
   authorName: string;
   email?: string | null;      // 可选；只存库，不进公开输出
+  website?: string | null;    // 可选 http(s) URL；公开输出，用于作者名链接
   body: string;
 }
 ```
@@ -127,6 +129,7 @@ await fetch("/_action/comments.create", {
     contentId: "void-first-entry",
     authorName: "访客",
     email: "optional@example.com",
+    website: "https://example.com",
     body: "你好",
   }),
 });
