@@ -2,7 +2,8 @@ import type { JSX } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 interface ArticleScrollNavProps {
-  readonly title: string;
+  readonly title?: string;
+  readonly mode?: "sections" | "simple";
 }
 
 interface HeadingItem {
@@ -28,7 +29,11 @@ const READING_OFFSET_RATIO = 0.22;
 const SEGMENT_GAP_PX = 3;
 const EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 
-export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
+export default function ArticleScrollNav({
+  title = "",
+  mode = "sections",
+}: ArticleScrollNavProps) {
+  const sectionsMode = mode === "sections";
   const [headings, setHeadings] = useState<readonly HeadingItem[]>([]);
   const [geometry, setGeometry] = useState<readonly SectionGeometry[]>(
     emptyGeometry,
@@ -62,6 +67,8 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
   }, [dragging]);
 
   useEffect(() => {
+    if (!sectionsMode) return;
+
     const article = document.querySelector<HTMLElement>(".post-page article");
     const titleHeading = document.querySelector<HTMLElement>(
       "[data-scroll-heading]",
@@ -100,9 +107,24 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
     collectHeadings();
     window.addEventListener("resize", collectHeadings);
     return () => window.removeEventListener("resize", collectHeadings);
-  }, [title]);
+  }, [sectionsMode, title]);
 
   const measureGeometry = useCallback(() => {
+    if (!sectionsMode) {
+      const maxScroll = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight,
+      );
+      if (maxScroll <= 1) {
+        setGeometry(emptyGeometry);
+        setReady(false);
+        return;
+      }
+      setGeometry([{ top: 0, height: maxScroll }]);
+      setReady(true);
+      return;
+    }
+
     if (headings.length === 0) {
       setGeometry(emptyGeometry);
       return;
@@ -129,26 +151,41 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
     }));
     setGeometry(next);
     setReady(true);
-  }, [headings]);
+  }, [headings, sectionsMode]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(measureGeometry);
-    const article = document.querySelector<HTMLElement>(".post-page article");
+    const observeTarget = sectionsMode
+      ? document.querySelector<HTMLElement>(".post-page article")
+      : document.documentElement;
     const observer = new ResizeObserver(measureGeometry);
-    if (article) observer.observe(article);
+    if (observeTarget) observer.observe(observeTarget);
     window.addEventListener("resize", measureGeometry);
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("resize", measureGeometry);
     };
-  }, [measureGeometry]);
+  }, [measureGeometry, sectionsMode]);
 
   useEffect(() => {
     if (geometry.length === 0) return;
 
     const updateFromScroll = () => {
       scrollFrameRef.current = 0;
+      if (!sectionsMode) {
+        const maxScroll = Math.max(
+          0,
+          document.documentElement.scrollHeight - window.innerHeight,
+        );
+        const nextProgress = maxScroll <= 0
+          ? 0
+          : clamp(window.scrollY / maxScroll);
+        setProgress(nextProgress);
+        setActiveIndex(0);
+        return;
+      }
+
       const readingOffset = window.innerHeight * READING_OFFSET_RATIO;
       const next = computeProgress(geometryRef.current, {
         scrollY: window.scrollY,
@@ -179,7 +216,7 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
       }
       window.clearTimeout(hideTimerRef.current);
     };
-  }, [geometry]);
+  }, [geometry, sectionsMode]);
 
   useEffect(() => {
     return () => {
@@ -204,7 +241,9 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
   }, [geometry]);
 
   const labelTops = useMemo(() => {
-    if (segments.length === 0 || railHeight === 0) return [] as number[];
+    if (!sectionsMode || segments.length === 0 || railHeight === 0) {
+      return [] as number[];
+    }
     const positions = segments.map((segment) => segment.offset * railHeight);
     for (let index = 1; index < positions.length; index += 1) {
       if (positions[index]! < positions[index - 1]! + 18) {
@@ -220,7 +259,7 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
     }
     positions[0] = Math.max(positions[0]!, 9);
     return positions;
-  }, [segments, railHeight]);
+  }, [sectionsMode, segments, railHeight]);
 
   useEffect(() => {
     const node = railRef.current;
@@ -230,7 +269,7 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
     const observer = new ResizeObserver(update);
     observer.observe(node);
     return () => observer.disconnect();
-  }, [ready, headings.length]);
+  }, [ready, headings.length, sectionsMode]);
 
   const cancelAnimation = useCallback(() => {
     if (animFrameRef.current !== 0) {
@@ -289,7 +328,6 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
         return;
       }
 
-      // Hold the final position briefly while layout settles, like x.ai.
       let pinFrame = 0;
       let pinScrollY = window.scrollY;
       let pinning = false;
@@ -310,8 +348,10 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
         }
       };
       const observer = new ResizeObserver(pin);
-      const article = document.querySelector<HTMLElement>(".post-page article");
-      observer.observe(article ?? document.body);
+      const observeTarget = sectionsMode
+        ? document.querySelector<HTMLElement>(".post-page article")
+        : document.documentElement;
+      observer.observe(observeTarget ?? document.body);
       window.addEventListener("scroll", onScroll, { passive: true });
       pin();
       const holdTimer = window.setTimeout(() => {
@@ -332,7 +372,7 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
     };
 
     animFrameRef.current = window.requestAnimationFrame(tick);
-  }, [cancelAnimation]);
+  }, [cancelAnimation, sectionsMode]);
 
   const scrollToHeading = (id: string) => {
     const target = document.getElementById(id);
@@ -348,6 +388,14 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
 
   const scrollToRatio = (ratio: number) => {
     const next = clamp(ratio);
+    if (!sectionsMode) {
+      const maxScroll = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight,
+      );
+      window.scrollTo({ top: next * maxScroll, behavior: "auto" });
+      return;
+    }
     const readingOffset = window.innerHeight * READING_OFFSET_RATIO;
     window.scrollTo({
       top: scrollYForRatio(geometryRef.current, {
@@ -376,12 +424,19 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
     dragMovedRef.current = false;
     const rect = event.currentTarget.getBoundingClientRect();
     const ratio = clamp((event.clientY - rect.top) / rect.height);
-    animateScrollTo(() =>
-      scrollYForRatio(geometryRef.current, {
+    animateScrollTo(() => {
+      if (!sectionsMode) {
+        const maxScroll = Math.max(
+          0,
+          document.documentElement.scrollHeight - window.innerHeight,
+        );
+        return ratio * maxScroll;
+      }
+      return scrollYForRatio(geometryRef.current, {
         ratio,
         readingOffset: window.innerHeight * READING_OFFSET_RATIO,
-      })
-    );
+      });
+    });
   };
 
   const handlePointerMove = (
@@ -428,17 +483,22 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
     );
   };
 
-  const showLabels = hovering || dragging;
+  const showLabels = sectionsMode && (hovering || dragging);
   const showRail = scrolling || hovering || dragging || animating;
   const navVisible = ready && (showRail || showLabels);
 
-  if (headings.length < 2 || segments.length < 2) return null;
+  if (sectionsMode) {
+    if (headings.length < 2 || segments.length < 2) return null;
+  } else if (!ready || segments.length === 0) {
+    return null;
+  }
 
   return (
     <nav
-      aria-label="文章章节"
+      aria-label={sectionsMode ? "文章章节" : "页面滚动进度"}
       class={[
         "pointer-events-none fixed top-1/2 right-0 z-40 hidden h-[72vh] max-h-[52rem] min-h-[26rem] w-[17.5rem] -translate-y-1/2 text-[color:var(--ink)] transition-opacity duration-[360ms] ease-[cubic-bezier(0.16,1,0.3,1)] xl:block",
+        sectionsMode ? "" : "w-6",
         dragging ? "select-none" : "",
         navVisible ? "opacity-100" : "opacity-0",
       ].filter(Boolean).join(" ")}
@@ -451,56 +511,62 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
         hoverTimerRef.current = window.setTimeout(() => setHovering(false), 200);
       }}
     >
-      <div
-        aria-hidden="true"
-        class={[
-          "pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent to-[color:var(--paper)] transition-opacity duration-[220ms] ease-[cubic-bezier(0.16,1,0.3,1)] [mask-image:linear-gradient(to_bottom,transparent_0%,black_15%,black_85%,transparent_100%)]",
-          showLabels ? "opacity-[0.82]" : "opacity-0",
-        ].join(" ")}
-      />
-      <div class="pointer-events-none absolute inset-y-0 right-8 left-4">
-        {segments.map((segment) => {
-          const heading = headings[segment.idx];
-          if (!heading) return null;
-          const top = labelTops[segment.idx];
-          const reached = segment.idx <= activeIndex;
-          return (
-            <button
-              type="button"
-              class={[
-                "absolute right-0 max-w-full truncate border-0 bg-transparent p-0 text-right font-sans text-xs leading-tight tracking-[-0.01em] transition-colors duration-200",
-                reached
-                  ? "text-[color:var(--ink)]"
-                  : "text-neutral-500 dark:text-neutral-500",
-                showLabels
-                  ? [
-                    "pointer-events-auto -translate-y-1/2",
-                    reached ? "opacity-100" : "opacity-80",
-                  ].join(" ")
-                  : "pointer-events-none translate-x-1 -translate-y-1/2 opacity-0",
-                "cursor-default hover:text-[color:var(--heading)] focus-visible:text-[color:var(--heading)] focus-visible:outline-none hover:-translate-x-0.5 hover:-translate-y-1/2 focus-visible:-translate-x-0.5 focus-visible:-translate-y-1/2",
-              ].join(" ")}
-              style={{
-                top: top === undefined
-                  ? `${segment.offset * 100}%`
-                  : `${top}px`,
-                transition:
-                  `color 200ms ease, opacity 220ms ${EASE}, transform 260ms ${EASE}`,
-              }}
-              aria-current={segment.idx === activeIndex ? "location" : undefined}
-              onClick={() => scrollToHeading(heading.id)}
-            >
-              {heading.label}
-            </button>
-          );
-        })}
-      </div>
+      {sectionsMode ? (
+        <>
+          <div
+            aria-hidden="true"
+            class={[
+              "pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent to-[color:var(--paper)] transition-opacity duration-[220ms] ease-[cubic-bezier(0.16,1,0.3,1)] [mask-image:linear-gradient(to_bottom,transparent_0%,black_15%,black_85%,transparent_100%)]",
+              showLabels ? "opacity-[0.82]" : "opacity-0",
+            ].join(" ")}
+          />
+          <div class="pointer-events-none absolute inset-y-0 right-8 left-4">
+            {segments.map((segment) => {
+              const heading = headings[segment.idx];
+              if (!heading) return null;
+              const top = labelTops[segment.idx];
+              const reached = segment.idx <= activeIndex;
+              return (
+                <button
+                  type="button"
+                  class={[
+                    "absolute right-0 max-w-full truncate border-0 bg-transparent p-0 text-right font-sans text-xs leading-tight tracking-[-0.01em] transition-colors duration-200",
+                    reached
+                      ? "text-[color:var(--ink)]"
+                      : "text-neutral-500 dark:text-neutral-500",
+                    showLabels
+                      ? [
+                        "pointer-events-auto -translate-y-1/2",
+                        reached ? "opacity-100" : "opacity-80",
+                      ].join(" ")
+                      : "pointer-events-none translate-x-1 -translate-y-1/2 opacity-0",
+                    "cursor-default hover:text-[color:var(--heading)] focus-visible:text-[color:var(--heading)] focus-visible:outline-none hover:-translate-x-0.5 hover:-translate-y-1/2 focus-visible:-translate-x-0.5 focus-visible:-translate-y-1/2",
+                  ].join(" ")}
+                  style={{
+                    top: top === undefined
+                      ? `${segment.offset * 100}%`
+                      : `${top}px`,
+                    transition:
+                      `color 200ms ease, opacity 220ms ${EASE}, transform 260ms ${EASE}`,
+                  }}
+                  aria-current={segment.idx === activeIndex
+                    ? "location"
+                    : undefined}
+                  onClick={() => scrollToHeading(heading.id)}
+                >
+                  {heading.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
       <div
         ref={railRef}
         class="pointer-events-auto absolute inset-y-0 right-0 w-6 cursor-default touch-none outline-none"
         role="scrollbar"
-        aria-label="文章滚动进度"
-        aria-controls="post-content"
+        aria-label={sectionsMode ? "文章滚动进度" : "页面滚动进度"}
+        aria-controls={sectionsMode ? "post-content" : undefined}
         aria-orientation="vertical"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -524,38 +590,55 @@ export default function ArticleScrollNav({ title }: ArticleScrollNavProps) {
             transitionDuration: showRail ? "350ms, 200ms" : "350ms, 500ms",
           }}
         >
-          {segments.map((segment) => (
-            <span
-              class={[
-                "absolute inset-x-0 rounded-full transition-colors duration-300",
-                showLabels
-                  ? "bg-[color-mix(in_srgb,var(--ink)_25%,transparent)]"
-                  : "bg-[color-mix(in_srgb,var(--ink)_15%,transparent)]",
-              ].join(" ")}
-              style={{
-                top: `${segment.offset * 100}%`,
-                height: `calc(${segment.size * 100}% - ${SEGMENT_GAP_PX}px)`,
-              }}
-            />
-          ))}
-          {segments.map((segment) => {
-            const fill = progress <= segment.offset
-              ? 0
-              : progress >= segment.end
-              ? 1
-              : (progress - segment.offset) / segment.size;
-            const fillHeight = fill * segment.size * 100;
-            return (
+          {sectionsMode
+            ? segments.map((segment) => (
               <span
-                class="absolute inset-x-0 rounded-full bg-[color:var(--ink)] transition-opacity duration-200 ease-out"
+                class={[
+                  "absolute inset-x-0 rounded-full transition-colors duration-300",
+                  showLabels
+                    ? "bg-[color-mix(in_srgb,var(--ink)_25%,transparent)]"
+                    : "bg-[color-mix(in_srgb,var(--ink)_15%,transparent)]",
+                ].join(" ")}
                 style={{
                   top: `${segment.offset * 100}%`,
-                  height: `calc(${fillHeight}% - ${SEGMENT_GAP_PX * fill}px)`,
-                  opacity: fill > 0 ? 1 : 0,
+                  height: `calc(${segment.size * 100}% - ${SEGMENT_GAP_PX}px)`,
                 }}
               />
-            );
-          })}
+            ))
+            : (
+              <span
+                class="absolute inset-x-0 inset-y-0 rounded-full bg-[color-mix(in_srgb,var(--ink)_15%,transparent)]"
+              />
+            )}
+          {sectionsMode
+            ? segments.map((segment) => {
+              const fill = progress <= segment.offset
+                ? 0
+                : progress >= segment.end
+                ? 1
+                : (progress - segment.offset) / segment.size;
+              const fillHeight = fill * segment.size * 100;
+              return (
+                <span
+                  class="absolute inset-x-0 rounded-full bg-[color:var(--ink)] transition-opacity duration-200 ease-out"
+                  style={{
+                    top: `${segment.offset * 100}%`,
+                    height:
+                      `calc(${fillHeight}% - ${SEGMENT_GAP_PX * fill}px)`,
+                    opacity: fill > 0 ? 1 : 0,
+                  }}
+                />
+              );
+            })
+            : (
+              <span
+                class="absolute inset-x-0 top-0 rounded-full bg-[color:var(--ink)] transition-opacity duration-200 ease-out"
+                style={{
+                  height: `${progress * 100}%`,
+                  opacity: progress > 0 ? 1 : 0,
+                }}
+              />
+            )}
         </div>
       </div>
     </nav>

@@ -1,9 +1,11 @@
 import {
+  Island,
   type ContentRecord,
   type Pagination,
   useThemeConfig,
 } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
+import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import { PostList } from "../shared/post-list.tsx";
 
 interface ArchivesProps {
@@ -61,6 +63,12 @@ export default function Archives({ posts, pagination }: ArchivesProps) {
           ) : null}
         </nav>
       ) : null}
+
+      <Island
+        name="article-scroll-nav"
+        component={ArticleScrollNav}
+        props={{ mode: "simple" as const }}
+      />
     </main>
   );
 }

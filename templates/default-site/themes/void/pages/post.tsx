@@ -70,7 +70,7 @@ export default function Post({ post }: PostProps) {
       <Island
         name="article-scroll-nav"
         component={ArticleScrollNav}
-        props={{ title }}
+        props={{ title, mode: "sections" as const }}
       />
     </main>
   );

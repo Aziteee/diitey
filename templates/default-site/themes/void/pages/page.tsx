@@ -1,5 +1,6 @@
 import { Island, type ContentRecord, useThemeConfig } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
+import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import Comments from "../islands/comments.tsx";
 
 interface PageProps {
@@ -48,6 +49,12 @@ export default function Page({ page }: PageProps) {
           props={{ contentId: page.id, mode: "panel" as const }}
         />
       ) : null}
+
+      <Island
+        name="article-scroll-nav"
+        component={ArticleScrollNav}
+        props={{ mode: "simple" as const }}
+      />
     </main>
   );
 }

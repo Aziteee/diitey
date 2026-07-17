@@ -1,10 +1,12 @@
 import {
+  Island,
   type ContentRecord,
   type Pagination,
   useThemeConfig,
 } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
 import type { CommentCounts } from "../shared/comments.ts";
+import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import { NoteList } from "../shared/note-list.tsx";
 import { PostList } from "../shared/post-list.tsx";
 
@@ -81,6 +83,12 @@ export default function Home({
           />
         </section>
       ) : null}
+
+      <Island
+        name="article-scroll-nav"
+        component={ArticleScrollNav}
+        props={{ mode: "simple" as const }}
+      />
     </main>
   );
 }

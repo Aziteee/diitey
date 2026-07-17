@@ -87,12 +87,12 @@
     color: var(--ink);
   }
 
-  html:has(.post-page) {
+  html {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
 
-  html:has(.post-page)::-webkit-scrollbar {
+  html::-webkit-scrollbar {
     display: none;
   }
 
@@ -167,7 +167,7 @@
   }
 
   .back-link {
-    @apply inline-flex items-center gap-2 text-sm text-neutral-500 no-underline
+    @apply inline-flex items-center gap-2 font-sans text-sm text-neutral-500 no-underline
       hover:text-neutral-950 focus-visible:text-neutral-950 focus-visible:outline-none
       dark:text-neutral-500 dark:hover:text-neutral-100 dark:focus-visible:text-neutral-100;
     background: none;
