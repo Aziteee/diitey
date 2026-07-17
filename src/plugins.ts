@@ -3,6 +3,7 @@ import type {
   ContentRecord,
   ContentSummary,
   PluginDefinition,
+  PluginRequestMeta,
   PluginServiceDefinition,
 } from "./index.ts";
 import type { Database } from "bun:sqlite";
@@ -180,6 +181,7 @@ export async function callPluginService(
   contentLookup: ContentLookup = emptyContentLookup,
   signal: AbortSignal = new AbortController().signal,
   logger: Logger = createSilentLogger(),
+  requestMeta?: PluginRequestMeta,
 ): Promise<unknown> {
   const service = runtime.services[name];
   if (!service) throw new Error(`Unknown plugin service: ${name}`);
@@ -211,6 +213,7 @@ export async function callPluginService(
         return contentLookup.get(contentId);
       },
     }),
+    ...(requestMeta === undefined ? {} : { requestMeta }),
   });
   return service.output.parse(output);
 }

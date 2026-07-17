@@ -9,6 +9,8 @@ interface AdminComment {
   readonly website: string | null;
   readonly body: string;
   readonly createdAt: string;
+  readonly clientAddress: string | null;
+  readonly userAgent: string | null;
   readonly contentUrl: string | null;
   readonly contentTitle: string | null;
 }
@@ -91,6 +93,20 @@ function AuthorDetails({ comment }: { readonly comment: AdminComment }) {
         ) : (
           <span class="text-zinc-600">—</span>
         )}
+      </dd>
+
+      <dt class="text-xs font-medium uppercase tracking-wider text-zinc-500">
+        IP
+      </dt>
+      <dd class="m-0 font-mono text-zinc-300">
+        {comment.clientAddress ?? <span class="text-zinc-600">—</span>}
+      </dd>
+
+      <dt class="text-xs font-medium uppercase tracking-wider text-zinc-500">
+        User-Agent
+      </dt>
+      <dd class="m-0 break-all text-zinc-300">
+        {comment.userAgent ?? <span class="text-zinc-600">—</span>}
       </dd>
     </dl>
   );

@@ -90,6 +90,11 @@ export interface PluginLogger {
   error(message: string): void;
 }
 
+export interface PluginRequestMeta {
+  readonly clientAddress?: string;
+  readonly userAgent?: string;
+}
+
 export interface PluginServiceContext {
   readonly database: Database;
   readonly signal: AbortSignal;
@@ -98,6 +103,8 @@ export interface PluginServiceContext {
     exists(contentId: string): boolean;
     get(contentId: string): ContentSummary | undefined;
   };
+  /** Present only on public Action invocations. */
+  readonly requestMeta?: PluginRequestMeta;
 }
 
 export interface PluginServiceDefinition {

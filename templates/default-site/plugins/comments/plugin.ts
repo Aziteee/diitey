@@ -74,6 +74,8 @@ interface CommentRow {
   readonly website: string | null;
   readonly body: string;
   readonly createdAt: string;
+  readonly clientAddress: string | null;
+  readonly userAgent: string | null;
 }
 
 const COMMENT_ROW_SELECT = `
@@ -85,7 +87,9 @@ const COMMENT_ROW_SELECT = `
   email,
   website,
   body,
-  created_at AS createdAt
+  created_at AS createdAt,
+  client_address AS clientAddress,
+  user_agent AS userAgent
 `;
 
 const optionalWebsite = z
@@ -201,6 +205,8 @@ export default definePlugin({
         website: websiteOutput,
         body: z.string(),
         createdAt: z.string(),
+        clientAddress: z.string().nullable(),
+        userAgent: z.string().nullable(),
         contentUrl: z.string().nullable(),
         contentTitle: z.string().nullable(),
       })
@@ -220,8 +226,8 @@ export default definePlugin({
 
     return {
       id: "comments",
-      version: "1.1.0",
-      schemaVersion: 2,
+      version: "1.2.0",
+      schemaVersion: 3,
 
       adminPage: {
         component: "./admin.tsx",
@@ -254,6 +260,14 @@ export default definePlugin({
           schemaVersion: 2,
           sql: `
             ALTER TABLE comments ADD COLUMN website TEXT;
+          `,
+        },
+        {
+          id: "0003-add-request-meta",
+          schemaVersion: 3,
+          sql: `
+            ALTER TABLE comments ADD COLUMN client_address TEXT;
+            ALTER TABLE comments ADD COLUMN user_agent TEXT;
           `,
         },
       ],
@@ -390,6 +404,8 @@ export default definePlugin({
                 website: row.website ?? null,
                 body: row.body,
                 createdAt: row.createdAt,
+                clientAddress: row.clientAddress ?? null,
+                userAgent: row.userAgent ?? null,
                 contentUrl: summary?.url ?? null,
                 contentTitle: title,
               };
@@ -434,7 +450,7 @@ export default definePlugin({
         "comments.create": {
           input: createInput,
           output: commentNodeOutput,
-          handler(input, { content, database }) {
+          handler(input, { content, database, requestMeta }) {
             if (!content.exists(input.contentId)) {
               throw new PluginNotFoundError("content does not exist");
             }
@@ -500,6 +516,8 @@ export default definePlugin({
                 ? null
                 : input.email;
             const website = input.website ?? null;
+            const clientAddress = requestMeta?.clientAddress ?? null;
+            const userAgent = requestMeta?.userAgent ?? null;
 
             const result = database
               .query(
@@ -511,8 +529,10 @@ export default definePlugin({
                    email,
                    website,
                    body,
-                   created_at
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                   created_at,
+                   client_address,
+                   user_agent
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               )
               .run(
                 input.contentId,
@@ -523,6 +543,8 @@ export default definePlugin({
                 website,
                 input.body,
                 createdAt,
+                clientAddress,
+                userAgent,
               );
 
             return {

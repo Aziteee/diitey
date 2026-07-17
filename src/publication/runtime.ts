@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { parse as parseCookie, serialize as serializeCookie } from "cookie";
+import type { PluginRequestMeta } from "../index.ts";
 import { runWithTimeout } from "../plugin-invoke.ts";
 import {
   callPluginService,
@@ -432,6 +433,7 @@ async function handleAction(
         createContentLookup(publication.content.byId),
         signal,
         log,
+        buildPublicActionRequestMeta(request, clientAddress),
       ),
     );
     return Response.json(result, {
@@ -463,6 +465,24 @@ async function handleAction(
       { status: 500, headers: { "x-request-id": requestId } },
     );
   }
+}
+
+function buildPublicActionRequestMeta(
+  request: Request,
+  clientAddress: string,
+): PluginRequestMeta {
+  const meta: {
+    clientAddress?: string;
+    userAgent?: string;
+  } = {};
+  if (clientAddress !== "" && clientAddress !== "unknown") {
+    meta.clientAddress = clientAddress;
+  }
+  const userAgent = request.headers.get("user-agent")?.trim();
+  if (userAgent) {
+    meta.userAgent = userAgent;
+  }
+  return Object.freeze(meta);
 }
 
 function normalizePath(path: string): string {
