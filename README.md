@@ -31,11 +31,12 @@ bun index.ts status --root test/fixtures/minimal-site
 
 主题可用 picomatch glob 声明集合，通过 `where`、`orderBy`、`limit` 和 `paginate` 查询内容，并用源路径参数生成内容路由。集合 glob 支持 `*`、`**`、`?`、字符集合和 brace patterns（例如 `articles/**/*.{md,mdx}`）；内容源路径和主题中的 Windows 路径分隔符都会统一为 `/`，无效 glob 会在启动时失败。集合排序会自动追加内容 ID 升序作为最终排序键；分页读取正整数 `page` 查询参数。内容记录的 `url` 始终指向其 canonical 路由。
 
-可在 `site.config.ts` 中设置 reload 构建超时：
+可在 `site.config.ts` 中设置内容目录与 reload 构建超时。`contentDir` 默认为相对站点根的 `content`；也可写相对路径（相对站点根解析，允许 `..`）或绝对路径（可位于站点根之外）。解析结果须为已存在的目录，并在启动时钉入站点程序；变更需要重启站点。
 
 ```ts
 export default defineSite({
   theme: "./themes/minimal/theme.ts",
+  contentDir: "notes",
   reload: { timeoutMs: 30_000 },
 });
 ```

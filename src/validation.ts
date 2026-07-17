@@ -23,6 +23,7 @@ const siteDefinitionSchema = z
   .object({
     theme: extensionReferenceSchema,
     plugins: z.array(extensionReferenceSchema).optional(),
+    contentDir: z.string().min(1).optional(),
     reload: z
       .object({
         timeoutMs: positiveInteger.optional(),

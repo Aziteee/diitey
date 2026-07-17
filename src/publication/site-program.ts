@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { realpath, stat } from "node:fs/promises";
+import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ComponentType } from "preact";
 import type { Pluggable } from "unified";
@@ -140,10 +141,11 @@ export async function compileSiteProgram(
   }
 
   const reloadTimeoutMs = config.reload?.timeoutMs ?? defaultReloadTimeoutMs;
+  const contentRoot = await resolveContentRoot(root, config.contentDir);
 
   return Object.freeze({
     root,
-    contentRoot: resolve(root, "content"),
+    contentRoot,
     programRevision,
     collections: theme.collections,
     collectionMatchers,
@@ -165,6 +167,33 @@ export async function compileSiteProgram(
     pluginEntries: Object.freeze(pluginEntries),
     reloadTimeoutMs,
   });
+}
+
+async function resolveContentRoot(
+  siteRoot: string,
+  contentDir: string | undefined,
+): Promise<string> {
+  const declared = contentDir ?? "content";
+  if (declared.trim() === "") {
+    throw new Error("contentDir must be a non-empty path");
+  }
+  const contentRoot = isAbsolute(declared)
+    ? resolve(declared)
+    : resolve(siteRoot, declared);
+  let info;
+  try {
+    info = await stat(contentRoot);
+  } catch {
+    throw new Error(
+      `content directory does not exist: ${contentRoot} (contentDir: ${JSON.stringify(declared)})`,
+    );
+  }
+  if (!info.isDirectory()) {
+    throw new Error(
+      `content directory is not a directory: ${contentRoot} (contentDir: ${JSON.stringify(declared)})`,
+    );
+  }
+  return realpath(contentRoot);
 }
 
 async function importDefault<T>(filePath: string, label: string): Promise<T> {

@@ -42,6 +42,7 @@ export type WhereCondition =
 export interface SiteDefinition {
   theme: ExtensionSelection;
   plugins?: readonly ExtensionSelection[];
+  contentDir?: string;
   reload?: {
     timeoutMs?: number;
   };
