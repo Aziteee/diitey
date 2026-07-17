@@ -1,6 +1,7 @@
 import { Island, type ContentRecord, useThemeConfig } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
 import { formatDate } from "../shared/date.ts";
+import { SiteFooter } from "../shared/footer.tsx";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import Comments from "../islands/comments.tsx";
 
@@ -66,6 +67,8 @@ export default function Post({ post }: PostProps) {
         component={Comments}
         props={{ contentId: post.id, mode: "panel" as const }}
       />
+
+      <SiteFooter />
 
       <Island
         name="article-scroll-nav"

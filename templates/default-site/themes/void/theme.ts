@@ -10,6 +10,7 @@ const voidThemeConfig = z
     homeNotes: z.number().int().positive().max(100),
     postsPerPage: z.number().int().positive().max(100),
     notesPerPage: z.number().int().positive().max(100),
+    beian: z.string().trim().optional(),
   })
   .strict()
   .default({

@@ -139,6 +139,29 @@
     @apply py-16 sm:py-24;
   }
 
+  .site-footer {
+    @apply mt-20 font-sans text-xs tracking-[0.02em] text-neutral-500
+      dark:text-neutral-500 sm:mt-28;
+  }
+
+  .site-footer-line {
+    @apply m-0;
+  }
+
+  .site-footer-line + .site-footer-line {
+    @apply mt-1.5;
+  }
+
+  .site-footer-sep {
+    @apply mx-1.5;
+  }
+
+  .site-footer-beian {
+    @apply text-inherit no-underline hover:text-neutral-800 focus-visible:text-neutral-800
+      focus-visible:outline-none dark:hover:text-neutral-200 dark:focus-visible:text-neutral-200;
+    text-decoration: none;
+  }
+
   /* —— Links —— */
   .animated-link,
   .content a {

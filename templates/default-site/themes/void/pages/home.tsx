@@ -7,6 +7,7 @@ import {
 import type { VoidThemeConfig } from "../theme.ts";
 import type { CommentCounts } from "../shared/comments.ts";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
+import { SiteFooter } from "../shared/footer.tsx";
 import { NoteList } from "../shared/note-list.tsx";
 import { PostList } from "../shared/post-list.tsx";
 
@@ -83,6 +84,8 @@ export default function Home({
           />
         </section>
       ) : null}
+
+      <SiteFooter />
 
       <Island
         name="article-scroll-nav"

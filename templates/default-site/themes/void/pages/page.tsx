@@ -2,6 +2,7 @@ import { Island, type ContentRecord, useThemeConfig } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import Comments from "../islands/comments.tsx";
+import { SiteFooter } from "../shared/footer.tsx";
 
 interface PageProps {
   readonly page: ContentRecord;
@@ -49,6 +50,8 @@ export default function Page({ page }: PageProps) {
           props={{ contentId: page.id, mode: "panel" as const }}
         />
       ) : null}
+
+      <SiteFooter />
 
       <Island
         name="article-scroll-nav"

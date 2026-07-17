@@ -6,6 +6,7 @@ import {
 } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
+import { SiteFooter } from "../shared/footer.tsx";
 import { PostList } from "../shared/post-list.tsx";
 
 interface ArchivesProps {
@@ -63,6 +64,8 @@ export default function Archives({ posts, pagination }: ArchivesProps) {
           ) : null}
         </nav>
       ) : null}
+
+      <SiteFooter />
 
       <Island
         name="article-scroll-nav"

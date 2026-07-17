@@ -20,6 +20,7 @@ bun run reload
 
 - `homePosts` / `homeNotes`：主页 Writing / Notes 展示条数
 - `postsPerPage` / `notesPerPage`：`/archives` 与 `/notes` 每页条数
+- `beian`：可选备案号；配置后页脚第二行显示，并链到工信部备案查询页
 
 - 长文放在 `content/posts/`，每个文件必须声明 `id`、`created` 和 `title`；设置 `draft: true` 可使其不被发布。
 - 短笔记放在 `content/notes/`，只需 `id` 和 `created`（无需标题）；完整列表在 `/notes`。
