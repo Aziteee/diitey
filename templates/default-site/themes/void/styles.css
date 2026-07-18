@@ -466,8 +466,11 @@
     @apply focus-visible:outline-none;
   }
 
-  .content strong {
-    @apply font-medium;
+  .content strong,
+  .content b {
+    color: var(--heading);
+    font-weight: 700;
+    font-synthesis: weight;
   }
 
   .content ul {
