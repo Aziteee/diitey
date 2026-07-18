@@ -22,6 +22,9 @@ export default defineSite({
       },
     },
     {
+      use: "./plugins/pangu/plugin.ts",
+    },
+    {
       use: "./plugins/comments/plugin.ts",
       config: {
         maxBodyLength: 2000,
