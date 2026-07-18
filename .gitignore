@@ -42,3 +42,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # local demo content (not part of the default-site template)
 templates/default-site/content/posts/demo.md
+
+templates/default-site/public
