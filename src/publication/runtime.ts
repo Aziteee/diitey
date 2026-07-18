@@ -31,6 +31,10 @@ import {
 } from "./effective-publication.ts";
 import { PageRequestError } from "./page-plan.ts";
 import { compileSiteProgram, type SiteProgram } from "./site-program.ts";
+import {
+  siteStaticAssetMethodNotAllowed,
+  tryServeSiteStaticAsset,
+} from "./site-static-assets.ts";
 import { SnapshotWorker } from "./snapshot-worker-client.ts";
 
 export type BuildAttempt =
@@ -191,11 +195,22 @@ export async function openPublication(options: {
         return serveContentResource(request, resource, log);
       }
 
-      if (request.method !== "GET") {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        const path = normalizePath(url.pathname);
+        if (!requestPublication.routesByPath.has(path)) {
+          const publicMethod = await siteStaticAssetMethodNotAllowed(
+            request,
+            options.root,
+          );
+          if (publicMethod) return publicMethod;
+        }
         return new Response("Method Not Allowed", { status: 405 });
       }
 
       if (url.pathname === "/assets/island-manifest.json") {
+        if (request.method !== "GET") {
+          return new Response("Method Not Allowed", { status: 405 });
+        }
         return Response.json(requestPublication.islandManifest, {
           headers: { "cache-control": "no-store" },
         });
@@ -203,6 +218,9 @@ export async function openPublication(options: {
 
       const islandBody = requestPublication.islandAssetsByPath.get(url.pathname);
       if (islandBody !== undefined) {
+        if (request.method !== "GET") {
+          return new Response("Method Not Allowed", { status: 405 });
+        }
         return new Response(islandBody, {
           headers: {
             "content-type": "text/javascript; charset=utf-8",
@@ -215,6 +233,9 @@ export async function openPublication(options: {
         url.pathname,
       );
       if (themeAssetBody !== undefined) {
+        if (request.method !== "GET") {
+          return new Response("Method Not Allowed", { status: 405 });
+        }
         return new Response(themeAssetBody, {
           headers: {
             "content-type": "text/css; charset=utf-8",
@@ -226,7 +247,16 @@ export async function openPublication(options: {
       const path = normalizePath(url.pathname);
       const entry = requestPublication.routesByPath.get(path);
       if (!entry) {
+        const siteStatic = await tryServeSiteStaticAsset(
+          request,
+          options.root,
+        );
+        if (siteStatic) return siteStatic;
         return new Response("Not Found", { status: 404 });
+      }
+
+      if (request.method !== "GET") {
+        return new Response("Method Not Allowed", { status: 405 });
       }
 
       const plan = requestPublication.plansById.get(entry.planId);
