@@ -94,14 +94,17 @@ export async function openPublication(options: {
 }): Promise<PublicationRuntime> {
   const log = options.logger ?? createSilentLogger();
   let program: SiteProgram;
+  const siteProgramStartedAt = performance.now();
   try {
     program = await compileSiteProgram(options.root);
     log.info("site program compiled", {
+      durationMs: performance.now() - siteProgramStartedAt,
       programRevision: program.programRevision,
       pluginCount: program.pluginDefinitions.length,
     });
   } catch (error) {
     log.error("site program compilation failed", {
+      durationMs: performance.now() - siteProgramStartedAt,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
@@ -114,20 +117,41 @@ export async function openPublication(options: {
       publicOrigin: "http://127.0.0.1",
       secureCookies: false,
     });
+  const adminStartedAt = performance.now();
   const adminProgram = await compileAdminProgram({
     enabled: security.enabled,
     siteRoot: options.root,
     plugins: program.pluginEntries,
   });
+  log.info("admin program compiled", {
+    durationMs: performance.now() - adminStartedAt,
+    pageCount: adminProgram.pages.length,
+    enabled: adminProgram.enabled,
+  });
+  const contentStartedAt = performance.now();
   const content = await buildContentSnapshot(program);
+  log.info("content snapshot built", {
+    durationMs: performance.now() - contentStartedAt,
+    recordCount: content.records.length,
+    resourceCount: content.resources.length,
+  });
   let publication = buildEffectivePublication(program, content);
+  const resourcesStartedAt = performance.now();
   await collectPublishedContentResources(program, publication, log);
+  log.info("content resource cache ready", {
+    durationMs: performance.now() - resourcesStartedAt,
+    resourceCount: publication.content.resources.length,
+  });
+  const workerStartedAt = performance.now();
   const snapshotWorker = await SnapshotWorker.create(
     options.root,
     program.programRevision,
     program.islands,
     program.styles,
   );
+  log.info("snapshot worker ready", {
+    durationMs: performance.now() - workerStartedAt,
+  });
   const pluginDatabase = await preparePluginDatabase(
     options.root,
     program.pluginDefinitions,

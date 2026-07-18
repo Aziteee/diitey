@@ -45,9 +45,7 @@ function applyPendingPluginMigrations(
   );
   if (databasePlugins.length === 0) return;
 
-  logger.info("plugin migrations started", {
-    pluginCount: databasePlugins.length,
-  });
+  const startedAt = performance.now();
   try {
     const migrate = database.transaction(() => {
       ensureMetadata(database);
@@ -132,9 +130,11 @@ function applyPendingPluginMigrations(
     migrate();
     logger.info("plugin migrations succeeded", {
       pluginCount: databasePlugins.length,
+      durationMs: performance.now() - startedAt,
     });
   } catch (error) {
     logger.error("plugin migrations failed", {
+      durationMs: performance.now() - startedAt,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
