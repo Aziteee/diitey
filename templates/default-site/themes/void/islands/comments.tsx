@@ -529,7 +529,7 @@ function mergeReplies(
 
 function sortRoots(items: readonly CommentTreeNode[]): CommentTreeNode[] {
   return [...items]
-    .sort((a, b) => a.id - b.id)
+    .sort((a, b) => b.id - a.id)
     .map((root) => ({
       ...root,
       replies: [...root.replies].sort((a, b) => a.id - b.id),

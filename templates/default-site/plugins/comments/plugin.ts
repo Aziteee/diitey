@@ -303,7 +303,7 @@ export default definePlugin({
                 `SELECT id
                  FROM comments
                  WHERE content_id = ? AND parent_id IS NULL
-                 ORDER BY id ASC
+                 ORDER BY id DESC
                  LIMIT ? OFFSET ?`,
               )
               .all(input.contentId, limit, offset)
@@ -330,7 +330,7 @@ export default definePlugin({
               .all(input.contentId, ...rootIds, ...rootIds);
 
             return {
-              items: buildCommentTree(rows),
+              items: buildCommentTree(rows).sort((a, b) => b.id - a.id),
               total,
               rootTotal,
               hasMore: offset + limit < rootTotal,

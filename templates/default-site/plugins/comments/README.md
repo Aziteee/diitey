@@ -67,7 +67,7 @@ type CommentNode = {
 type CommentTreeNode = CommentNode & { replies: CommentNode[] };
 
 {
-  items: CommentTreeNode[]; // 本页根评论 + 各自全部回复；根按 id ASC
+  items: CommentTreeNode[]; // 本页根评论 + 各自全部回复；根按 id DESC（新在前）
   total: number;            // 该内容下全部评论条数（根+回复）
   rootTotal: number;        // 根评论总数
   hasMore: boolean;
