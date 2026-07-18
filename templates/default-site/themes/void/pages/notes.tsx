@@ -7,6 +7,7 @@ import {
 import type { VoidThemeConfig } from "../theme.ts";
 import type { CommentCounts } from "../shared/comments.ts";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
+import ImageGallery from "../islands/image-gallery.tsx";
 import { SiteFooter } from "../shared/footer.tsx";
 import { NoteList } from "../shared/note-list.tsx";
 
@@ -72,6 +73,8 @@ export default function Notes({
       ) : null}
 
       <SiteFooter />
+
+      <Island name="image-gallery" component={ImageGallery} props={{}} />
 
       <Island
         name="article-scroll-nav"

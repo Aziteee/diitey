@@ -2,6 +2,7 @@ import { Island, type ContentRecord, useThemeConfig } from "diitey";
 import type { VoidThemeConfig } from "../theme.ts";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import Comments from "../islands/comments.tsx";
+import ImageGallery from "../islands/image-gallery.tsx";
 import { SiteFooter } from "../shared/footer.tsx";
 
 interface PageProps {
@@ -52,6 +53,8 @@ export default function Page({ page }: PageProps) {
       ) : null}
 
       <SiteFooter />
+
+      <Island name="image-gallery" component={ImageGallery} props={{}} />
 
       <Island
         name="article-scroll-nav"

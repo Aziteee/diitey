@@ -4,6 +4,7 @@ import { formatDate } from "../shared/date.ts";
 import { SiteFooter } from "../shared/footer.tsx";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import Comments from "../islands/comments.tsx";
+import ImageGallery from "../islands/image-gallery.tsx";
 
 interface PostProps {
   readonly post: ContentRecord;
@@ -67,6 +68,8 @@ export default function Post({ post }: PostProps) {
         component={Comments}
         props={{ contentId: post.id, mode: "panel" as const }}
       />
+
+      <Island name="image-gallery" component={ImageGallery} props={{}} />
 
       <SiteFooter />
 

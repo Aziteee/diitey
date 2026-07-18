@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "../../node_modules/lightgallery/css/lightgallery.css";
+@import "../../node_modules/lightgallery/css/lg-zoom.css";
 @source "./pages/**/*.{tsx,ts,jsx,js}";
 @source "./islands/**/*.{tsx,ts,jsx,js}";
 @source "./shared/**/*.{tsx,ts,jsx,js}";
@@ -580,6 +582,15 @@
     @apply my-8 block h-auto max-w-full;
   }
 
+  .content a[data-lg] {
+    text-decoration: none;
+  }
+
+  .content a[data-lg]:hover,
+  .content a[data-lg]:focus-visible {
+    text-decoration: none;
+  }
+
   .post-content > h2 {
     scroll-margin-top: 2rem;
   }
@@ -603,5 +614,38 @@
 
   .note-content p:last-child {
     margin-bottom: 0;
+  }
+
+  /* Image-only paragraphs flow horizontally (markdown often wraps each img in <p>) */
+  .note-content p:has(> img:only-child),
+  .note-content p:has(> a[data-lg]:only-child) {
+    display: inline-block;
+    margin: 0 0.5rem 0.5rem 0;
+    vertical-align: top;
+  }
+
+  .note-content p:has(> img:not(:only-child)),
+  .note-content p:has(> a[data-lg]:not(:only-child)) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .note-content img,
+  .note-content a[data-lg] img {
+    width: 5.5rem;
+    height: 5.5rem;
+    margin: 0;
+    display: block;
+    object-fit: cover;
+    border-radius: 0.25rem;
+    cursor: zoom-in;
+  }
+
+  .note-content a[data-lg] {
+    display: inline-block;
+    line-height: 0;
+    vertical-align: top;
   }
 }
