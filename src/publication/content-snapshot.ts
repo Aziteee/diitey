@@ -2,6 +2,11 @@ import { readdir } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { buildContentRecord } from "../content.ts";
 import {
+  ensureContentFields,
+  type EnsureContentFieldsResult,
+} from "../content-ensure.ts";
+import type { Logger } from "../logger.ts";
+import {
   contentResourceCacheRoot,
   createContentResourceBuilder,
   type ContentResource,
@@ -21,13 +26,33 @@ export interface ContentSnapshot {
   readonly resources: readonly ContentResource[];
   readonly byId: ReadonlyMap<string, ContentRecord>;
   readonly byCollection: Readonly<Record<string, readonly ContentRecord[]>>;
+  readonly ensuredContentFields?: EnsureContentFieldsResult;
+}
+
+export interface BuildContentSnapshotOptions {
+  readonly version?: string;
+  readonly ensureContentFields?: boolean;
+  readonly logger?: Logger;
 }
 
 export async function buildContentSnapshot(
   program: SiteProgram,
-  version: string = crypto.randomUUID(),
+  versionOrOptions: string | BuildContentSnapshotOptions = {},
 ): Promise<ContentSnapshot> {
+  const options: BuildContentSnapshotOptions =
+    typeof versionOrOptions === "string"
+      ? { version: versionOrOptions }
+      : versionOrOptions;
+  const version = options.version ?? crypto.randomUUID();
   const sourcePaths = await scanContentFiles(program.contentRoot);
+  let ensuredContentFields: EnsureContentFieldsResult | undefined;
+  if (options.ensureContentFields) {
+    ensuredContentFields = await ensureContentFields(
+      program.contentRoot,
+      sourcePaths,
+    );
+    logEnsureResult(options.logger, ensuredContentFields);
+  }
   const contentResources = await createContentResourceBuilder({
     contentRoot: program.contentRoot,
     cacheRoot: contentResourceCacheRoot(program.root),
@@ -42,7 +67,29 @@ export async function buildContentSnapshot(
       ),
     ),
   );
-  return assembleContentSnapshot(program, records, version, contentResources.resources);
+  return assembleContentSnapshot(
+    program,
+    records,
+    version,
+    contentResources.resources,
+    ensuredContentFields,
+  );
+}
+
+function logEnsureResult(
+  logger: Logger | undefined,
+  result: EnsureContentFieldsResult,
+): void {
+  if (!logger) {
+    return;
+  }
+  if (result.ensuredIds === 0 && result.ensuredCreated === 0) {
+    return;
+  }
+  logger.info("content fields ensured", {
+    ensuredIds: result.ensuredIds,
+    ensuredCreated: result.ensuredCreated,
+  });
 }
 
 export function assembleContentSnapshot(
@@ -50,6 +97,7 @@ export function assembleContentSnapshot(
   records: readonly ContentRecord[],
   version: string = crypto.randomUUID(),
   resources: readonly ContentResource[] = [],
+  ensuredContentFields?: EnsureContentFieldsResult,
 ): ContentSnapshot {
   validateUniqueContentIds(records);
   const selectedByCollection = selectCollections(
@@ -92,6 +140,7 @@ export function assembleContentSnapshot(
       new Map(publishedRecords.map((record) => [record.id, record])),
     ),
     byCollection: Object.freeze(byCollection),
+    ensuredContentFields,
   });
 }
 

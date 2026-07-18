@@ -14,11 +14,14 @@ try {
   if (command === "start") {
     await runStart(root, args);
   } else if (command === "reload" || command === "status") {
-    const result = await runManagementCommand(root, command);
+    const result = await runManagementCommand(root, command, {
+      ensureContentFields:
+        command === "reload" && hasFlag(args, "--ensure-content-fields"),
+    });
     console.log(JSON.stringify(result));
   } else {
     throw new Error(
-      "Usage: diitey <start|reload|status> [--root <directory>] [--port <number>] [--host <address>] [--public-origin <origin>] [--admin-token <token>]",
+      "Usage: diitey <start|reload|status> [--root <directory>] [--port <number>] [--host <address>] [--public-origin <origin>] [--admin-token <token>] [--ensure-content-fields]",
     );
   }
 } catch (error) {
@@ -56,6 +59,7 @@ async function runStart(root: string, args: string[]): Promise<void> {
     host,
     adminToken,
     publicOrigin,
+    ensureContentFields: hasFlag(args, "--ensure-content-fields"),
   });
 
   let stopping = false;
@@ -74,4 +78,8 @@ async function runStart(root: string, args: string[]): Promise<void> {
 function readOption(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
   return index === -1 ? undefined : args[index + 1];
+}
+
+function hasFlag(args: string[], name: string): boolean {
+  return args.includes(name);
 }

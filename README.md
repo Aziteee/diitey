@@ -45,7 +45,7 @@ title: "Hello, Diitey"
 这是正文。
 ```
 
-> 每个内容文件都必须有全站唯一的字符串 `id`，以及 ISO 8601 格式的字符串 `created`。主题可以通过集合 schema 要求额外属性，例如 `title`、`tags` 或 `draft`。
+> 每个内容文件都必须有全站唯一的字符串 `id`，以及 ISO 8601 格式的字符串 `created`。主题可以通过集合 schema 要求额外属性，例如 `title`、`tags` 或 `draft`。新建笔记时可对 `start` / `reload` 传入 `--ensure-content-fields`，在本次构建前自动补全并写回缺失字段（`id` 为 UUID，`created` 取文件创建时间）。
 
 ## 站点配置
 
@@ -97,14 +97,15 @@ diitey <start|reload|status> [options]
 | `bun index.ts reload --root <site>` | 请求运行中的站点重建内容 |
 | `bun index.ts status --root <site>` | 查看当前内容快照和最近构建状态 |
 
-`start` 还支持：
+`start` 与 `reload` 还支持：
 
 | 参数 / 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `--host` | `127.0.0.1` | HTTP 监听地址 |
-| `--port` | `3000` | HTTP 端口 |
-| `--public-origin` / `DIITEY_PUBLIC_ORIGIN` | 监听 origin | 对外 origin；启用远程管理时必须明确配置 |
-| `--admin-token` / `DIITEY_ADMIN_TOKEN` | 未启用 | 启用 `/_admin`；token 至少 32 字节 |
+| `--ensure-content-fields` | 关闭 | 本次构建前为真缺的 `id` / `created` 写回内容文件（无 Front Matter 时插入完整块；非法已有值失败不覆盖） |
+| `--host` | `127.0.0.1` | HTTP 监听地址（仅 `start`） |
+| `--port` | `3000` | HTTP 端口（仅 `start`） |
+| `--public-origin` / `DIITEY_PUBLIC_ORIGIN` | 监听 origin | 对外 origin；启用远程管理时必须明确配置（仅 `start`） |
+| `--admin-token` / `DIITEY_ADMIN_TOKEN` | 未启用 | 启用 `/_admin`；token 至少 32 字节（仅 `start`） |
 | `DIITEY_LOG_LEVEL` | `info` | `error`、`warn` 或 `info` |
 
 ## reload 与重启

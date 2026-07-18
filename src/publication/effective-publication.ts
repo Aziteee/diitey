@@ -1,4 +1,5 @@
 import type { ContentSnapshot } from "./content-snapshot.ts";
+import type { EnsureContentFieldsResult } from "../content-ensure.ts";
 import type { ContentResource } from "./content-resources.ts";
 import type { PluginAssetResource } from "./plugin-assets.ts";
 import type {
@@ -30,6 +31,7 @@ export interface PublicationCandidate {
   readonly programRevision: string;
   readonly content: ContentSnapshot;
   readonly routes: readonly PublishedRouteEntry[];
+  readonly ensuredContentFields?: EnsureContentFieldsResult;
 }
 
 export function buildEffectivePublication(
@@ -111,6 +113,7 @@ export function buildPublicationCandidate(
     ...candidate,
     content: freezeContentSnapshot(candidate.content),
     routes: Object.freeze(candidate.routes.map(freezeRouteEntry)),
+    ensuredContentFields: content.ensuredContentFields,
   });
 }
 
@@ -149,6 +152,7 @@ function freezeContentSnapshot(content: ContentSnapshot): ContentSnapshot {
         ]),
       ),
     ),
+    ensuredContentFields: content.ensuredContentFields,
   });
 }
 

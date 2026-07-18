@@ -14,6 +14,7 @@ export interface StartOptions {
   readonly host?: string;
   readonly adminToken?: string | null;
   readonly publicOrigin?: string | null;
+  readonly ensureContentFields?: boolean;
   readonly logger?: Logger;
 }
 
@@ -42,6 +43,7 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
     root: options.root,
     security,
     logger,
+    ensureContentFields: options.ensureContentFields === true,
   });
 
   const publicServer = Bun.serve({
@@ -84,7 +86,8 @@ export async function startSite(options: StartOptions): Promise<RunningSite> {
         return Response.json(publication.status());
       }
       if (request.method === "POST" && url.pathname === "/_system/reload") {
-        const result = await publication.reload();
+        const ensureContentFields = await readEnsureContentFields(request);
+        const result = await publication.reload({ ensureContentFields });
         if (result.status === "in_progress") {
           return Response.json(result, { status: 409 });
         }
@@ -188,4 +191,30 @@ function isLoopbackAddress(address: string): boolean {
     address === "::1" ||
     address === "::ffff:127.0.0.1"
   );
+}
+
+async function readEnsureContentFields(request: Request): Promise<boolean> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return false;
+  }
+  const text = await request.text();
+  if (text.trim() === "") {
+    return false;
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(text) as unknown;
+  } catch {
+    return false;
+  }
+  if (
+    body === null ||
+    typeof body !== "object" ||
+    Array.isArray(body) ||
+    !("ensureContentFields" in body)
+  ) {
+    return false;
+  }
+  return (body as { ensureContentFields?: unknown }).ensureContentFields === true;
 }

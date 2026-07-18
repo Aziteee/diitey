@@ -49,6 +49,7 @@ export class SnapshotWorker {
   async build(
     buildId: string,
     timeoutMs: number,
+    options: { readonly ensureContentFields?: boolean } = {},
   ): Promise<PublicationCandidate> {
     if (this.unavailable || this.closed) {
       throw new Error(this.unavailableError);
@@ -97,7 +98,11 @@ export class SnapshotWorker {
         this.markUnavailable(`${event.message}. ${WORKER_UNAVAILABLE}`);
         reject(new Error(this.unavailableError));
       };
-      worker.postMessage({ type: "build", buildId });
+      worker.postMessage({
+        type: "build",
+        buildId,
+        ensureContentFields: options.ensureContentFields === true,
+      });
     });
   }
 

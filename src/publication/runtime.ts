@@ -83,6 +83,7 @@ export interface PublicationRuntime {
   reload(options?: {
     readonly buildId?: string;
     readonly signal?: AbortSignal;
+    readonly ensureContentFields?: boolean;
   }): Promise<ReloadResult>;
   status(): PublicationStatus;
   close(): Promise<void>;
@@ -92,6 +93,7 @@ export async function openPublication(options: {
   readonly root: string;
   readonly security?: AdminSecurityConfig;
   readonly logger?: Logger;
+  readonly ensureContentFields?: boolean;
 }): Promise<PublicationRuntime> {
   const log = options.logger ?? createSilentLogger();
   let program: SiteProgram;
@@ -130,7 +132,10 @@ export async function openPublication(options: {
     enabled: adminProgram.enabled,
   });
   const contentStartedAt = performance.now();
-  const content = await buildContentSnapshot(program);
+  const content = await buildContentSnapshot(program, {
+    ensureContentFields: options.ensureContentFields === true,
+    logger: log,
+  });
   log.info("content snapshot built", {
     durationMs: performance.now() - contentStartedAt,
     recordCount: content.records.length,
@@ -386,6 +391,9 @@ export async function openPublication(options: {
         const candidate = await snapshotWorker.build(
           buildId,
           program.reloadTimeoutMs,
+          {
+            ensureContentFields: reloadOptions.ensureContentFields === true,
+          },
         );
         if (candidate.programRevision !== program.programRevision) {
           throw new Error(
@@ -399,6 +407,14 @@ export async function openPublication(options: {
           buildId,
           snapshotVersion: publication.version,
         });
+        const ensured = candidate.ensuredContentFields;
+        if (ensured && (ensured.ensuredIds > 0 || ensured.ensuredCreated > 0)) {
+          log.info("content fields ensured", {
+            buildId,
+            ensuredIds: ensured.ensuredIds,
+            ensuredCreated: ensured.ensuredCreated,
+          });
+        }
         return {
           status: "succeeded",
           buildId,

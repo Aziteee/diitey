@@ -15,7 +15,11 @@ type WorkerRequest =
       styles: BuiltThemeStyles;
       pluginAssets: BuiltPluginAssets;
     }
-  | { type: "build"; buildId: string };
+      | {
+          type: "build";
+          buildId: string;
+          ensureContentFields?: boolean;
+        };
 
 let program: SiteProgram | undefined;
 
@@ -41,7 +45,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       throw new Error("Snapshot worker is not initialized");
     }
 
-    const content = await buildContentSnapshot(program, event.data.buildId);
+    const content = await buildContentSnapshot(program, {
+      version: event.data.buildId,
+      ensureContentFields: event.data.ensureContentFields === true,
+    });
     const candidate = buildPublicationCandidate(program, content);
     postMessage({ type: "built", candidate });
   } catch (error) {
