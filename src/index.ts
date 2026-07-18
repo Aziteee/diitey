@@ -68,8 +68,21 @@ export interface PluginDefinition {
   readonly markdown?: {
     readonly remarkPlugins?: readonly Pluggable[];
     readonly rehypePlugins?: readonly Pluggable[];
+    /** Applied to the markdown body only (after front matter), before remark-parse. */
+    readonly bodyTransforms?: readonly MarkdownBodyTransform[];
   };
 }
+
+export interface MarkdownBodyTransformContext {
+  readonly sourcePath: string;
+  readonly filePath: string;
+  readonly attributes: Readonly<Record<string, unknown>>;
+}
+
+export type MarkdownBodyTransform = (
+  body: string,
+  context: MarkdownBodyTransformContext,
+) => string | Promise<string>;
 
 export interface PluginMigration {
   readonly id: string;

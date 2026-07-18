@@ -6,7 +6,10 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
 import { parseDocument } from "yaml";
-import type { ContentRecord } from "./index.ts";
+import type {
+  ContentRecord,
+  MarkdownBodyTransform,
+} from "./index.ts";
 import type { ContentResourceBuilder } from "./publication/content-resources.ts";
 
 const frontMatterPattern = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
@@ -17,11 +20,12 @@ export async function buildContentRecord(
   extensions: {
     readonly remarkPlugins: readonly Pluggable[];
     readonly rehypePlugins: readonly Pluggable[];
+    readonly bodyTransforms?: readonly MarkdownBodyTransform[];
   },
   contentResources?: ContentResourceBuilder,
 ): Promise<ContentRecord> {
-  const markdown = await readFile(filePath, "utf8");
-  const frontMatter = markdown.match(frontMatterPattern);
+  const raw = await readFile(filePath, "utf8");
+  const frontMatter = raw.match(frontMatterPattern);
   if (!frontMatter?.[1]) {
     throw new Error(`${sourcePath}: YAML Front Matter is required`);
   }
@@ -40,6 +44,22 @@ export async function buildContentRecord(
   if (typeof created !== "string" || !isValidIsoDate(created)) {
     throw new Error(`${sourcePath}: created must be a valid ISO 8601 date or datetime`);
   }
+
+  const frontMatterBlock = frontMatter[0];
+  let body = raw.slice(frontMatterBlock.length);
+  const frozenAttributes = Object.freeze({ ...attributes });
+  for (const transform of extensions.bodyTransforms ?? []) {
+    const next = await transform(body, {
+      sourcePath,
+      filePath,
+      attributes: frozenAttributes,
+    });
+    if (typeof next !== "string") {
+      throw new Error(`${sourcePath}: body transform must return a string`);
+    }
+    body = next;
+  }
+  const markdown = frontMatterBlock + body;
 
   const processor = unified()
     .use(remarkParse)
@@ -61,7 +81,7 @@ export async function buildContentRecord(
     created: normalizeCreated(created),
     sourcePath,
     url: "",
-    attributes: Object.freeze({ ...attributes }),
+    attributes: frozenAttributes,
     html: String(rendered),
   });
 }

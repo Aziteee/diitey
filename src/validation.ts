@@ -188,6 +188,7 @@ const pluginDefinitionSchema = z
       .object({
         remarkPlugins: z.array(z.unknown()).optional(),
         rehypePlugins: z.array(z.unknown()).optional(),
+        bodyTransforms: z.array(z.unknown()).optional(),
       })
       .strict()
       .optional(),

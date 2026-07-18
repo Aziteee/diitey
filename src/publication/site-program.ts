@@ -11,6 +11,7 @@ import {
 } from "../islands.ts";
 import type {
   CollectionDefinition,
+  MarkdownBodyTransform,
   PluginDefinition,
 } from "../index.ts";
 import { buildPluginRuntime, type PluginRuntime } from "../plugins.ts";
@@ -39,6 +40,7 @@ export interface SiteProgram {
   readonly markdown: {
     readonly remarkPlugins: readonly Pluggable[];
     readonly rehypePlugins: readonly Pluggable[];
+    readonly bodyTransforms: readonly MarkdownBodyTransform[];
   };
   readonly plugins: PluginRuntime;
   readonly pluginDefinitions: readonly PluginDefinition[];
@@ -160,6 +162,9 @@ export async function compileSiteProgram(
       ),
       rehypePlugins: Object.freeze(
         plugins.flatMap((plugin) => plugin.markdown?.rehypePlugins ?? []),
+      ),
+      bodyTransforms: Object.freeze(
+        plugins.flatMap((plugin) => plugin.markdown?.bodyTransforms ?? []),
       ),
     }),
     plugins: pluginRuntime,
