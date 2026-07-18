@@ -36,6 +36,58 @@ interface ContentResourceArtifact {
   readonly cachePath: string;
 }
 
+export type Artifact = ContentResourceArtifact;
+
+/** Shared content-addressed artifact materialization for publication assets. */
+export class ArtifactStore {
+  private readonly artifactsByRealPath = new Map<string, Promise<Artifact>>();
+
+  constructor(private readonly cacheRoot: string) {}
+
+  materialize(realPath: string): Promise<Artifact> {
+    const existing = this.artifactsByRealPath.get(realPath);
+    if (existing) return existing;
+    const pending = this.copy(realPath);
+    this.artifactsByRealPath.set(realPath, pending);
+    return pending;
+  }
+
+  private async copy(realPath: string): Promise<Artifact> {
+    const temporaryPath = resolve(this.cacheRoot, `.tmp-${crypto.randomUUID()}`);
+    const digest = createHash("sha256");
+    let byteLength = 0;
+    try {
+      await pipeline(
+        createReadStream(realPath),
+        new Transform({
+          transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback) {
+            digest.update(chunk);
+            byteLength += chunk.byteLength;
+            callback(null, chunk);
+          },
+        }),
+        createWriteStream(temporaryPath, { flags: "wx" }),
+      );
+      const hash = digest.digest("hex");
+      const finalizedPath = resolve(this.cacheRoot, hash);
+      try {
+        await rename(temporaryPath, finalizedPath);
+      } catch (error) {
+        try {
+          await stat(finalizedPath);
+        } catch {
+          throw error;
+        }
+        await rm(temporaryPath, { force: true });
+      }
+      return Object.freeze({ digest: hash, byteLength, cachePath: finalizedPath });
+    } catch (error) {
+      await rm(temporaryPath, { force: true });
+      throw error;
+    }
+  }
+}
+
 interface MarkdownNode {
   readonly type?: unknown;
   url?: unknown;
@@ -59,7 +111,7 @@ export async function createContentResourceBuilder(options: {
   return new ContentResourceBuilder(
     realContentRoot,
     resolve(options.contentRoot),
-    resolve(options.cacheRoot),
+    new ArtifactStore(resolve(options.cacheRoot)),
   );
 }
 
@@ -68,16 +120,12 @@ export function contentResourceCacheRoot(root: string): string {
 }
 
 export class ContentResourceBuilder {
-  private readonly artifactsByRealPath = new Map<
-    string,
-    Promise<ContentResourceArtifact>
-  >();
   private readonly resourcesByPublicPath = new Map<string, ContentResource>();
 
   constructor(
     private readonly realContentRoot: string,
     private readonly contentRoot: string,
-    private readonly cacheRoot: string,
+    private readonly artifactStore: ArtifactStore,
   ) {}
 
   remarkPlugin(sourceFilePath: string): Pluggable {
@@ -144,7 +192,7 @@ export class ContentResourceBuilder {
     const realTarget = await this.resolveEligibleTarget(candidate.targetPath);
     if (!realTarget) return destination;
 
-    const artifact = await this.materializeArtifact(realTarget);
+    const artifact = await this.artifactStore.materialize(realTarget);
     const resource = freezeContentResource({
       publicPath: `/assets/content/${artifact.digest}/${encodeURIComponent(candidate.basename)}`,
       digest: artifact.digest,
@@ -228,60 +276,9 @@ export class ContentResourceBuilder {
     }
     return realTarget;
   }
-
-  private materializeArtifact(
-    realTarget: string,
-  ): Promise<ContentResourceArtifact> {
-    const existing = this.artifactsByRealPath.get(realTarget);
-    if (existing) return existing;
-    const materialized = this.copyToContentAddressedCache(realTarget);
-    this.artifactsByRealPath.set(realTarget, materialized);
-    return materialized;
-  }
-
-  private async copyToContentAddressedCache(
-    realTarget: string,
-  ): Promise<ContentResourceArtifact> {
-    const temporaryPath = resolve(this.cacheRoot, `.tmp-${crypto.randomUUID()}`);
-    const digest = createHash("sha256");
-    let byteLength = 0;
-    try {
-      await pipeline(
-        createReadStream(realTarget),
-        new Transform({
-          transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback) {
-            digest.update(chunk);
-            byteLength += chunk.byteLength;
-            callback(null, chunk);
-          },
-        }),
-        createWriteStream(temporaryPath, { flags: "wx" }),
-      );
-      const hash = digest.digest("hex");
-      const finalizedPath = resolve(this.cacheRoot, hash);
-      try {
-        await rename(temporaryPath, finalizedPath);
-      } catch (error) {
-        try {
-          await stat(finalizedPath);
-        } catch {
-          throw error;
-        }
-        await rm(temporaryPath, { force: true });
-      }
-      return Object.freeze({
-        digest: hash,
-        byteLength,
-        cachePath: finalizedPath,
-      });
-    } catch (error) {
-      await rm(temporaryPath, { force: true });
-      throw error;
-    }
-  }
 }
 
-export async function collectContentResourceCache(options: {
+export async function collectArtifactCache(options: {
   readonly cacheRoot: string;
   readonly referencedDigests: ReadonlySet<string>;
   readonly now?: number;
@@ -303,6 +300,9 @@ export async function collectContentResourceCache(options: {
     }),
   );
 }
+
+/** @deprecated Use collectArtifactCache for new publication resource domains. */
+export const collectContentResourceCache = collectArtifactCache;
 
 function walkMarkdownTree(tree: unknown): MarkdownNode[] {
   const nodes: MarkdownNode[] = [];

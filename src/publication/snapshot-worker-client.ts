@@ -1,6 +1,7 @@
 import type { BuiltIslands } from "../islands.ts";
 import type { BuiltThemeStyles } from "../styles.ts";
 import type { PublicationCandidate } from "./effective-publication.ts";
+import type { BuiltPluginAssets } from "./plugin-assets.ts";
 
 type WorkerResult =
   | { type: "ready"; programRevision: string }
@@ -22,6 +23,7 @@ export class SnapshotWorker {
     private readonly programRevision: string,
     private readonly islands: BuiltIslands,
     private readonly styles: BuiltThemeStyles,
+    private readonly pluginAssets: BuiltPluginAssets,
   ) {
     this.ready = this.spawn();
   }
@@ -31,12 +33,14 @@ export class SnapshotWorker {
     programRevision: string,
     islands: BuiltIslands,
     styles: BuiltThemeStyles,
+    pluginAssets: BuiltPluginAssets,
   ): Promise<SnapshotWorker> {
     const builder = new SnapshotWorker(
       root,
       programRevision,
       islands,
       styles,
+      pluginAssets,
     );
     await builder.ready;
     return builder;
@@ -143,7 +147,8 @@ export class SnapshotWorker {
         root: this.root,
         programRevision: this.programRevision,
         islands: this.islands,
-        styles: this.styles,
+      styles: this.styles,
+      pluginAssets: this.pluginAssets,
       });
     });
   }

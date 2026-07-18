@@ -164,6 +164,28 @@ const pluginAdminPageDefinition = z
   })
   .strict();
 
+const pluginPublicationDefinition = z
+  .object({
+    assets: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            file: z.string().min(1),
+            contentType: z.string().min(1).optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+    head: z
+      .custom<(...args: any[]) => unknown>(
+        (value) => typeof value === "function",
+        "expected a head generator function",
+      )
+      .optional(),
+  })
+  .strict();
+
 const pluginDefinitionSchema = z
   .object({
     id: z.string().min(1).optional(),
@@ -184,6 +206,7 @@ const pluginDefinitionSchema = z
     services: z.record(z.string(), pluginServiceDefinition).optional(),
     actions: z.record(z.string(), actionDefinition).optional(),
     adminPage: pluginAdminPageDefinition.optional(),
+    publication: pluginPublicationDefinition.optional(),
     markdown: z
       .object({
         remarkPlugins: z.array(z.unknown()).optional(),

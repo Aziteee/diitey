@@ -65,6 +65,7 @@ export interface PluginDefinition {
   readonly services?: Readonly<Record<string, PluginServiceDefinition>>;
   readonly actions?: Readonly<Record<string, ActionDefinition>>;
   readonly adminPage?: PluginAdminPageDefinition;
+  readonly publication?: PluginPublicationDefinition;
   readonly markdown?: {
     readonly remarkPlugins?: readonly Pluggable[];
     readonly rehypePlugins?: readonly Pluggable[];
@@ -222,6 +223,25 @@ export function defineTheme<Config>(
     | ConfigurableDefinition<Config, ThemeDefinition>,
 ): ThemeDefinition | ConfigurableDefinition<Config, ThemeDefinition> {
   return definition;
+}
+
+export interface PluginPublicationAssetDefinition {
+  readonly name: string;
+  readonly file: string;
+  readonly contentType?: string;
+}
+
+export interface PluginHeadContext {
+  readonly assetUrl: (name: string) => string;
+}
+
+export type PluginHeadGenerator = (
+  context: PluginHeadContext,
+) => string;
+
+export interface PluginPublicationDefinition {
+  readonly assets?: readonly PluginPublicationAssetDefinition[];
+  readonly head?: PluginHeadGenerator;
 }
 
 export function definePlugin(definition: PluginDefinition): PluginDefinition;

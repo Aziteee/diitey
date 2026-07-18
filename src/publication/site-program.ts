@@ -23,6 +23,7 @@ import {
   validateRoutePatterns,
 } from "./route-pattern.ts";
 import { compilePagePlan, type CompiledPagePlan } from "./page-plan.ts";
+import { buildPluginAssets, type BuiltPluginAssets } from "./plugin-assets.ts";
 
 export interface SiteProgram {
   readonly root: string;
@@ -48,6 +49,7 @@ export interface SiteProgram {
     readonly definition: PluginDefinition;
     readonly entryPath: string;
   }[];
+  readonly pluginAssets: BuiltPluginAssets;
   readonly reloadTimeoutMs: number;
 }
 
@@ -59,6 +61,7 @@ export async function compileSiteProgram(
   options: {
     readonly islands?: BuiltIslands;
     readonly styles?: BuiltThemeStyles;
+    readonly pluginAssets?: BuiltPluginAssets;
   } = {},
 ): Promise<SiteProgram> {
   const extensions = await loadSiteExtensions(root);
@@ -79,6 +82,8 @@ export async function compileSiteProgram(
     }),
   );
   const pluginRuntime = buildPluginRuntime(plugins);
+  const pluginAssets =
+    options.pluginAssets ?? (await buildPluginAssets({ root, entries: pluginEntries }));
   if (theme.routes.length === 0) {
     throw new Error("Theme must declare at least one route");
   }
@@ -170,6 +175,7 @@ export async function compileSiteProgram(
     plugins: pluginRuntime,
     pluginDefinitions: Object.freeze(plugins),
     pluginEntries: Object.freeze(pluginEntries),
+    pluginAssets,
     reloadTimeoutMs,
   });
 }

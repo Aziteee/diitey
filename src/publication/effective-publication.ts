@@ -1,5 +1,6 @@
 import type { ContentSnapshot } from "./content-snapshot.ts";
 import type { ContentResource } from "./content-resources.ts";
+import type { PluginAssetResource } from "./plugin-assets.ts";
 import type {
   CompiledPagePlan,
   PublishedRouteEntry,
@@ -19,6 +20,8 @@ export interface EffectivePublication {
   readonly islandAssetsByPath: ReadonlyMap<string, string>;
   readonly islandManifest: Readonly<Record<string, string>>;
   readonly themeAssetsByPath: ReadonlyMap<string, string>;
+  readonly pluginAssetsByPath: ReadonlyMap<string, PluginAssetResource>;
+  readonly pluginHeadFragments: readonly string[];
 }
 
 export interface PublicationCandidate {
@@ -94,6 +97,8 @@ export function materializePublication(
     islandAssetsByPath: Object.freeze(islandAssetsByPath),
     islandManifest: program.islands.manifest,
     themeAssetsByPath: Object.freeze(themeAssetsByPath),
+    pluginAssetsByPath: program.pluginAssets.assetsByPath,
+    pluginHeadFragments: program.pluginAssets.headFragments,
   });
 }
 

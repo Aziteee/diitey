@@ -20,10 +20,11 @@ import type { Logger } from "../logger.ts";
 import { createSilentLogger } from "../silent-logger.ts";
 import { buildContentSnapshot } from "./content-snapshot.ts";
 import {
-  collectContentResourceCache,
+  collectArtifactCache,
   contentResourceCacheRoot,
   type ContentResource,
 } from "./content-resources.ts";
+import { pluginAssetCacheRoot } from "./plugin-assets.ts";
 import {
   buildEffectivePublication,
   materializePublication,
@@ -138,6 +139,7 @@ export async function openPublication(options: {
   let publication = buildEffectivePublication(program, content);
   const resourcesStartedAt = performance.now();
   await collectPublishedContentResources(program, publication, log);
+  await collectPluginAssets(program, publication, log);
   log.info("content resource cache ready", {
     durationMs: performance.now() - resourcesStartedAt,
     resourceCount: publication.content.resources.length,
@@ -148,6 +150,7 @@ export async function openPublication(options: {
     program.programRevision,
     program.islands,
     program.styles,
+    program.pluginAssets,
   );
   log.info("snapshot worker ready", {
     durationMs: performance.now() - workerStartedAt,
@@ -216,6 +219,12 @@ export async function openPublication(options: {
         if (!resource) {
           return new Response("Not Found", { status: 404 });
         }
+        return serveContentResource(request, resource, log);
+      }
+
+      if (url.pathname.startsWith("/assets/plugins/")) {
+        const resource = requestPublication.pluginAssetsByPath.get(url.pathname);
+        if (!resource) return new Response("Not Found", { status: 404 });
         return serveContentResource(request, resource, log);
       }
 
@@ -299,9 +308,10 @@ export async function openPublication(options: {
           contentIds: requestPublication.contentIds,
           contentById: requestPublication.content.byId,
         });
-        const html = program.usesDocument
+        const rendered = program.usesDocument
           ? `<!doctype html>${body}`
           : `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(entry.title)}</title></head><body>${body}</body></html>`;
+        const html = injectPluginHead(rendered, requestPublication.pluginHeadFragments);
         const headers: Record<string, string> = {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "no-store",
@@ -472,7 +482,7 @@ async function collectPublishedContentResources(
   log: Logger,
 ): Promise<void> {
   try {
-    await collectContentResourceCache({
+    await collectArtifactCache({
       cacheRoot: contentResourceCacheRoot(program.root),
       referencedDigests: new Set(
         publication.content.resources.map((resource) => resource.digest),
@@ -483,6 +493,32 @@ async function collectPublishedContentResources(
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+async function collectPluginAssets(
+  program: SiteProgram,
+  publication: EffectivePublication,
+  log: Logger,
+): Promise<void> {
+  try {
+    await collectArtifactCache({
+      cacheRoot: pluginAssetCacheRoot(program.root),
+      referencedDigests: new Set(
+        [...publication.pluginAssetsByPath.values()].map((resource) => resource.digest),
+      ),
+    });
+  } catch (error) {
+    log.error("plugin asset cache cleanup failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function injectPluginHead(html: string, fragments: readonly string[]): string {
+  if (fragments.length === 0) return html;
+  const closingHead = html.toLowerCase().indexOf("</head>");
+  if (closingHead < 0) return html;
+  return `${html.slice(0, closingHead)}${fragments.join("")}${html.slice(closingHead)}`;
 }
 
 async function handleAction(
