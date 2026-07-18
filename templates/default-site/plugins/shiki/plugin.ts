@@ -29,6 +29,10 @@ export default definePlugin({
                 light: config.lightTheme,
                 dark: config.darkTheme,
               },
+              // Default rehype-shiki preloads every bundled language (~300+).
+              // Load only languages that appear in code fences.
+              langs: [],
+              lazy: true,
               // No default inline colors/bg — theme CSS owns surface + dual-theme switch.
               defaultColor: false,
             },
