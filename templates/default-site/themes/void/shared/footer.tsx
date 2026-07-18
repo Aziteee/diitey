@@ -13,7 +13,15 @@ export function SiteFooter() {
         <span class="site-footer-sep" aria-hidden="true">
           ·
         </span>
-        Powered by Diitey
+        Powered by{" "}
+        <a
+          href="https://github.com/Aziteee/diitey"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="site-footer-beian"
+        >
+          Diitey
+        </a>
       </p>
       {beian ? (
         <p class="site-footer-line">
