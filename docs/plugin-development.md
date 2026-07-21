@@ -87,9 +87,28 @@ export default definePlugin({
 
 站点未提供 `config` 时，核心会把 `undefined` 交给 schema。若插件应支持零配置，请给整个 schema 设置默认值。
 
-`setup` 会分别在主进程和内容快照 worker 的启动阶段执行。它必须是确定、无外部副作用的定义工厂：不要在其中迁移数据库、启动定时器、发送请求或写文件。数据库结构变更放在迁移中，运行期写入放在服务 handler 中。
+`setup` 会分别在主进程和内容快照 worker 的启动阶段执行。它必须是确定、无外部副作用的定义工厂：不要在其中迁移数据库、启动定时器、发送请求或写文件。数据库结构变更放在迁移中，运行期写入放在服务 handler 中；准备内容目录（例如 `git pull`）放在内容快照前阶段。
 
 插件配置和定义属于站点程序，修改后必须重启。
+
+## 内容快照前阶段
+
+插件可声明 `beforeContentSnapshot`，在**每次**构建内容快照、扫描内容目录之前由核心调用（`start` 首次快照与每次 `reload` 相同）。多个插件按 `site.config` 的 `plugins` 顺序串行执行；任一抛错会使本次快照构建失败（`start` 无法启动；`reload` 保留原有效发布视图）。
+
+```ts
+export default definePlugin({
+  id: "git-sync",
+  async beforeContentSnapshot({ contentRoot, signal, log }) {
+    // contentRoot: 已解析的内容目录真实路径
+    // signal: 与本次构建 / reload 超时对齐；应响应 abort
+    // log: 插件日志口
+    log.info("syncing content directory");
+    // …对 contentRoot 执行准备（如 git pull）
+  },
+});
+```
+
+该阶段只用于准备内容目录上的文件状态，不产生内容记录，也不进入有效发布视图。不要用它改主题、插件列表或站点程序；也不要依赖数据库或已加载内容。网络类准备会占用 `reload.timeoutMs`，且在内容快照 worker 进程中执行，部署时需保证该进程能使用相同工具与凭据。
 
 ## Markdown 扩展
 
@@ -475,6 +494,7 @@ bun index.ts status --root path/to/site
 
 - 配置 schema 对 `undefined` 的行为符合预期；
 - `setup` 确定且无外部副作用；
+- `beforeContentSnapshot` 只准备内容目录，并响应 `signal`；
 - 服务名和 public Action 名带插件前缀且全站唯一；
 - 所有服务同时校验输入和输出，并响应 `signal`；
 - Action 使用尽可能小的请求体、限流和超时上限；

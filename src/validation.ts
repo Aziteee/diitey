@@ -207,6 +207,12 @@ const pluginDefinitionSchema = z
     actions: z.record(z.string(), actionDefinition).optional(),
     adminPage: pluginAdminPageDefinition.optional(),
     publication: pluginPublicationDefinition.optional(),
+    beforeContentSnapshot: z
+      .custom<(...args: any[]) => unknown>(
+        (value) => typeof value === "function",
+        "expected a beforeContentSnapshot function",
+      )
+      .optional(),
     markdown: z
       .object({
         remarkPlugins: z.array(z.unknown()).optional(),

@@ -45,12 +45,22 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       throw new Error("Snapshot worker is not initialized");
     }
 
-    const content = await buildContentSnapshot(program, {
-      version: event.data.buildId,
-      ensureContentFields: event.data.ensureContentFields === true,
-    });
-    const candidate = buildPublicationCandidate(program, content);
-    postMessage({ type: "built", candidate });
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      program.reloadTimeoutMs,
+    );
+    try {
+      const content = await buildContentSnapshot(program, {
+        version: event.data.buildId,
+        ensureContentFields: event.data.ensureContentFields === true,
+        signal: controller.signal,
+      });
+      const candidate = buildPublicationCandidate(program, content);
+      postMessage({ type: "built", candidate });
+    } finally {
+      clearTimeout(timer);
+    }
   } catch (error) {
     postMessage({
       type: "failed",

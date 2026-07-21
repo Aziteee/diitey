@@ -56,6 +56,16 @@ export interface PluginAdminPageDefinition {
   readonly styles?: string;
 }
 
+export interface BeforeContentSnapshotContext {
+  readonly contentRoot: string;
+  readonly signal: AbortSignal;
+  readonly log: PluginLogger;
+}
+
+export type BeforeContentSnapshot = (
+  context: BeforeContentSnapshotContext,
+) => void | Promise<void>;
+
 export interface PluginDefinition {
   readonly id?: string;
   readonly name?: string;
@@ -66,6 +76,11 @@ export interface PluginDefinition {
   readonly actions?: Readonly<Record<string, ActionDefinition>>;
   readonly adminPage?: PluginAdminPageDefinition;
   readonly publication?: PluginPublicationDefinition;
+  /**
+   * Runs before each content snapshot scan (start and reload).
+   * Use only to prepare the content directory; setup remains side-effect free.
+   */
+  readonly beforeContentSnapshot?: BeforeContentSnapshot;
   readonly markdown?: {
     readonly remarkPlugins?: readonly Pluggable[];
     readonly rehypePlugins?: readonly Pluggable[];

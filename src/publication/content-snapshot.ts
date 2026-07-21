@@ -6,6 +6,7 @@ import {
   type EnsureContentFieldsResult,
 } from "../content-ensure.ts";
 import type { Logger } from "../logger.ts";
+import { createSilentLogger } from "../silent-logger.ts";
 import {
   contentResourceCacheRoot,
   createContentResourceBuilder,
@@ -33,6 +34,7 @@ export interface BuildContentSnapshotOptions {
   readonly version?: string;
   readonly ensureContentFields?: boolean;
   readonly logger?: Logger;
+  readonly signal?: AbortSignal;
 }
 
 export async function buildContentSnapshot(
@@ -44,6 +46,7 @@ export async function buildContentSnapshot(
       ? { version: versionOrOptions }
       : versionOrOptions;
   const version = options.version ?? crypto.randomUUID();
+  await runBeforeContentSnapshot(program, options);
   const sourcePaths = await scanContentFiles(program.contentRoot);
   let ensuredContentFields: EnsureContentFieldsResult | undefined;
   if (options.ensureContentFields) {
@@ -74,6 +77,36 @@ export async function buildContentSnapshot(
     contentResources.resources,
     ensuredContentFields,
   );
+}
+
+async function runBeforeContentSnapshot(
+  program: SiteProgram,
+  options: BuildContentSnapshotOptions,
+): Promise<void> {
+  const signal = options.signal ?? new AbortController().signal;
+  const logger = options.logger ?? createSilentLogger();
+  for (const plugin of program.pluginDefinitions) {
+    const phase = plugin.beforeContentSnapshot;
+    if (!phase) {
+      continue;
+    }
+    if (signal.aborted) {
+      throw new Error("Content snapshot build was cancelled");
+    }
+    const pluginId = plugin.id ?? plugin.name ?? "anonymous";
+    try {
+      await phase({
+        contentRoot: program.contentRoot,
+        signal,
+        log: logger.child({ pluginId }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Plugin "${pluginId}" beforeContentSnapshot failed: ${message}`,
+      );
+    }
+  }
 }
 
 function logEnsureResult(
