@@ -45,7 +45,7 @@ title: "Hello, Diitey"
 这是正文。
 ```
 
-> 每个内容文件都必须有全站唯一的字符串 `id`，以及 ISO 8601 格式的字符串 `created`。主题可以通过集合 schema 要求额外属性，例如 `title`、`tags` 或 `draft`。新建笔记时可对 `start` / `reload` 传入 `--ensure-content-fields`，在本次构建前自动补全并写回缺失字段（`id` 为 UUID，`created` 取文件创建时间）。
+> 每个内容文件都必须有全站唯一的字符串 `id`，以及 ISO 8601 格式的字符串 `created`。
 
 ## 站点配置
 
@@ -106,6 +106,7 @@ diitey <start|reload|status> [options]
 | `--port` | `3000` | HTTP 端口（仅 `start`） |
 | `--public-origin` / `DIITEY_PUBLIC_ORIGIN` | 监听 origin | 对外 origin；启用远程管理时必须明确配置（仅 `start`） |
 | `--admin-token` / `DIITEY_ADMIN_TOKEN` | 未启用 | 启用 `/_admin`；token 至少 32 字节（仅 `start`） |
+| `--ensure-content-fields` | `false` | 自动补全并写回缺失字段（`id` 为 UUID，`created` 取文件创建时间） |
 | `DIITEY_LOG_LEVEL` | `info` | `error`、`warn` 或 `info` |
 
 ## reload 与重启
