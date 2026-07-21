@@ -498,7 +498,7 @@ export default function ArticleScrollNav({
       aria-label={sectionsMode ? "文章章节" : "页面滚动进度"}
       class={[
         "pointer-events-none fixed top-1/2 right-0 z-40 hidden h-[72vh] max-h-[52rem] min-h-[26rem] w-[17.5rem] -translate-y-1/2 text-[color:var(--ink)] transition-opacity duration-[360ms] ease-[cubic-bezier(0.16,1,0.3,1)] xl:block",
-        sectionsMode ? "" : "w-6",
+        sectionsMode ? "" : "w-12",
         dragging ? "select-none" : "",
         navVisible ? "opacity-100" : "opacity-0",
       ].filter(Boolean).join(" ")}
@@ -563,7 +563,7 @@ export default function ArticleScrollNav({
       ) : null}
       <div
         ref={railRef}
-        class="pointer-events-auto absolute inset-y-0 right-0 w-6 cursor-default touch-none outline-none"
+        class="pointer-events-auto absolute inset-y-0 right-0 w-12 cursor-default touch-none outline-none"
         role="scrollbar"
         aria-label={sectionsMode ? "文章滚动进度" : "页面滚动进度"}
         aria-controls={sectionsMode ? "post-content" : undefined}
