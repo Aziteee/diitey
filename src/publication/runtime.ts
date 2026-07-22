@@ -30,7 +30,11 @@ import {
   materializePublication,
   type EffectivePublication,
 } from "./effective-publication.ts";
-import { PageRequestError } from "./page-plan.ts";
+import {
+  PageRequestError,
+  type CompiledPagePlan,
+  type PublishedRouteEntry,
+} from "./page-plan.ts";
 import { compileSiteProgram, type SiteProgram } from "./site-program.ts";
 import {
   siteStaticAssetMethodNotAllowed,
@@ -290,7 +294,26 @@ export async function openPublication(options: {
           options.root,
         );
         if (siteStatic) return siteStatic;
-        return new Response("Not Found", { status: 404 });
+        if (request.method !== "GET" || !program.notFoundPlan) {
+          return new Response("Not Found", { status: 404 });
+        }
+        return renderThemePageResponse({
+          plan: program.notFoundPlan,
+          entry: {
+            path,
+            title: "Not Found",
+            planId: program.notFoundPlan.id,
+            publishData: Object.freeze({}),
+          },
+          request,
+          url,
+          program,
+          pluginDatabase,
+          log,
+          requestPublication,
+          hasCookieActions,
+          status: 404,
+        });
       }
 
       if (request.method !== "GET") {
@@ -302,59 +325,17 @@ export async function openPublication(options: {
         return new Response("Not Found", { status: 404 });
       }
 
-      const renderStartedAt = performance.now();
-      try {
-        const body = await plan.render(entry, request, {
-          pluginRuntime: program.plugins,
-          pluginDatabase,
-          logger: log,
-          islands: program.islands,
-          styles: program.styles,
-          contentIds: requestPublication.contentIds,
-          contentById: requestPublication.content.byId,
-        });
-        const rendered = program.usesDocument
-          ? `<!doctype html>${body}`
-          : `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(entry.title)}</title></head><body>${body}</body></html>`;
-        const html = injectPluginHead(rendered, requestPublication.pluginHeadFragments);
-        const headers: Record<string, string> = {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-store",
-        };
-        if (hasCookieActions) {
-          const csrfToken =
-            readCookie(request, "diitey_csrf") ?? crypto.randomUUID();
-          headers["set-cookie"] = serializeCookie("diitey_csrf", csrfToken, {
-            path: "/",
-            sameSite: "strict",
-            secure: url.protocol === "https:",
-          });
-        }
-        return new Response(html, { headers });
-      } catch (error) {
-        if (error instanceof PageRequestError) {
-          return new Response(error.message, { status: error.status });
-        }
-        const requestId = crypto.randomUUID();
-        log.error("page render failed", {
-          requestId,
-          page: plan.pageName,
-          status: 500,
-          durationMs: performance.now() - renderStartedAt,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        return new Response(
-          `<!doctype html><html><body><h1>Page rendering failed</h1><p>Request ID: ${requestId}</p></body></html>`,
-          {
-            status: 500,
-            headers: {
-              "content-type": "text/html; charset=utf-8",
-              "cache-control": "no-store",
-              "x-request-id": requestId,
-            },
-          },
-        );
-      }
+      return renderThemePageResponse({
+        plan,
+        entry,
+        request,
+        url,
+        program,
+        pluginDatabase,
+        log,
+        requestPublication,
+        hasCookieActions,
+      });
     },
 
     async reload(reloadOptions = {}) {
@@ -535,6 +516,88 @@ function injectPluginHead(html: string, fragments: readonly string[]): string {
   const closingHead = html.toLowerCase().indexOf("</head>");
   if (closingHead < 0) return html;
   return `${html.slice(0, closingHead)}${fragments.join("")}${html.slice(closingHead)}`;
+}
+
+async function renderThemePageResponse(options: {
+  readonly plan: CompiledPagePlan;
+  readonly entry: PublishedRouteEntry;
+  readonly request: Request;
+  readonly url: URL;
+  readonly program: SiteProgram;
+  readonly pluginDatabase: Database;
+  readonly log: Logger;
+  readonly requestPublication: EffectivePublication;
+  readonly hasCookieActions: boolean;
+  readonly status?: number;
+}): Promise<Response> {
+  const {
+    plan,
+    entry,
+    request,
+    url,
+    program,
+    pluginDatabase,
+    log,
+    requestPublication,
+    hasCookieActions,
+    status = 200,
+  } = options;
+  const renderStartedAt = performance.now();
+  try {
+    const body = await plan.render(entry, request, {
+      pluginRuntime: program.plugins,
+      pluginDatabase,
+      logger: log,
+      islands: program.islands,
+      styles: program.styles,
+      contentIds: requestPublication.contentIds,
+      contentById: requestPublication.content.byId,
+    });
+    const rendered = program.usesDocument
+      ? `<!doctype html>${body}`
+      : `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(entry.title)}</title></head><body>${body}</body></html>`;
+    const html = injectPluginHead(
+      rendered,
+      requestPublication.pluginHeadFragments,
+    );
+    const headers: Record<string, string> = {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+    };
+    if (hasCookieActions) {
+      const csrfToken =
+        readCookie(request, "diitey_csrf") ?? crypto.randomUUID();
+      headers["set-cookie"] = serializeCookie("diitey_csrf", csrfToken, {
+        path: "/",
+        sameSite: "strict",
+        secure: url.protocol === "https:",
+      });
+    }
+    return new Response(html, { status, headers });
+  } catch (error) {
+    if (error instanceof PageRequestError) {
+      return new Response(error.message, { status: error.status });
+    }
+    const requestId = crypto.randomUUID();
+    log.error("page render failed", {
+      requestId,
+      page: plan.pageName,
+      status: 500,
+      durationMs: performance.now() - renderStartedAt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return new Response(
+      `<!doctype html><html><body><h1>Page rendering failed</h1><p>Request ID: ${requestId}</p></body></html>`,
+      {
+        status: 500,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+          "x-request-id": requestId,
+        },
+      },
+    );
+  }
 }
 
 async function handleAction(

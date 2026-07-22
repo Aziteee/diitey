@@ -19,6 +19,7 @@ import { buildThemeStyles } from "../styles-build.ts";
 import type { BuiltThemeStyles } from "../styles.ts";
 import {
   compileCollectionMatchers,
+  isNotFoundRoutePath,
   type ItemRouteSpec,
   validateRoutePatterns,
 } from "./route-pattern.ts";
@@ -35,6 +36,7 @@ export interface SiteProgram {
   >;
   readonly itemRoutes: readonly ItemRouteSpec[];
   readonly pagePlans: readonly CompiledPagePlan[];
+  readonly notFoundPlan?: CompiledPagePlan;
   readonly islands: BuiltIslands;
   readonly styles: BuiltThemeStyles;
   readonly usesDocument: boolean;
@@ -104,7 +106,7 @@ export async function compileSiteProgram(
       )
     : undefined;
 
-  const pagePlans = await Promise.all(
+  const compiledPlans = await Promise.all(
     theme.routes.map(async (definition, index) => {
       const pagePath = resolve(
         themePath,
@@ -130,9 +132,16 @@ export async function compileSiteProgram(
       });
     }),
   );
+  const notFoundPlan = compiledPlans.find((plan) =>
+    isNotFoundRoutePath(plan.pathPattern),
+  );
+  const pagePlans = compiledPlans.filter(
+    (plan) => !isNotFoundRoutePath(plan.pathPattern),
+  );
 
   const itemRoutes: ItemRouteSpec[] = [];
   for (const definition of theme.routes) {
+    if (isNotFoundRoutePath(definition.path)) continue;
     for (const [, binding] of Object.entries(definition.page.data)) {
       if ("match" in binding) {
         itemRoutes.push(
@@ -158,6 +167,7 @@ export async function compileSiteProgram(
     collectionMatchers,
     itemRoutes: Object.freeze(itemRoutes),
     pagePlans: Object.freeze(pagePlans),
+    notFoundPlan,
     islands,
     styles,
     usesDocument: Document !== undefined,

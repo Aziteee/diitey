@@ -113,4 +113,16 @@ describe("route-pattern", () => {
       ]),
     ).not.toThrow();
   });
+
+  test("validateRoutePatterns accepts a single not-found route *", () => {
+    expect(() =>
+      validateRoutePatterns([{ path: "/" }, { path: "*" }]),
+    ).not.toThrow();
+  });
+
+  test("validateRoutePatterns rejects multiple not-found routes", () => {
+    expect(() =>
+      validateRoutePatterns([{ path: "*" }, { path: "*" }]),
+    ).toThrow(/not-found route/);
+  });
 });

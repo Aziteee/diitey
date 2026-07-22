@@ -16,6 +16,7 @@ themes/my-theme/
 │   ├── document.tsx        # 可选；由 document 声明
 │   ├── home.tsx
 │   ├── post.tsx
+│   ├── not-found.tsx       # 可选；route("*", page("not-found", {}))
 │   └── archives.tsx
 ├── islands/                # 可选；顶层 .ts/.tsx 文件会被构建
 │   └── counter.tsx
@@ -200,7 +201,15 @@ where: {
 
 `route(path, page, options?)` 把 URL 模式映射到一个页面定义。路径必须以 `/` 开头，不能占用 `/assets`；参数写作 `:name`。
 
-页面的 `data` 至少声明一个绑定。绑定名就是页面组件收到的 prop 名。
+特殊路径 `*` 表示主题自定义的 **not-found** 页面：在公开 HTML 导航未命中任何已发布路由、且站点 `public/` 也未提供该文件时，用该页面响应，HTTP 状态固定为 **404**。每个主题最多声明一条 `*` 路由；`*` 不能声明 `data` 绑定。资产、`/_action`、admin、`/_system` 等仍由核心返回纯文本 404。
+
+```ts
+route("*", page("not-found", {}))
+```
+
+对应 `pages/not-found.tsx`。该页与普通页面一样可使用 document、主题样式与 islands；状态码与传输头仍由核心控制。
+
+除 `*` 外，页面的 `data` 至少声明一个绑定。绑定名就是页面组件收到的 prop 名。
 
 ### 列表绑定
 

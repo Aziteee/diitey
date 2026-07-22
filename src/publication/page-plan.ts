@@ -118,8 +118,14 @@ export function compilePageBindings(options: {
     adminActions: Object.freeze({}),
   };
   const bindings = Object.entries(options.data);
-  if (bindings.length === 0) {
+  const isNotFound = options.pathPattern === "*";
+  if (bindings.length === 0 && !isNotFound) {
     throw new Error(`Theme page ${options.pageName} must declare data`);
+  }
+  if (isNotFound && bindings.length > 0) {
+    throw new Error(
+      `Not-found route * cannot declare data bindings (page ${options.pageName})`,
+    );
   }
 
   const compiled: CompiledBinding[] = bindings.map(([name, binding]) => {
@@ -165,7 +171,8 @@ export function compilePageBindings(options: {
   validateServiceDependencies(options.pageName, compiled, servicePlans);
 
   const itemBinding = itemBindings[0];
-  const isStaticPath = !options.pathPattern.includes(":");
+  const isStaticPath =
+    isNotFound || !options.pathPattern.includes(":");
   if (itemBinding === undefined && !isStaticPath) {
     throw new Error(
       `Route ${options.pathPattern} has parameters but no item binding`,
@@ -204,6 +211,10 @@ export function publishPageEntries(options: {
     renderThemePage,
   } = options;
   const { bindings, itemBinding, paginatedBinding, hasServices } = stages;
+
+  if (pathPattern === "*") {
+    return Object.freeze([]);
+  }
 
   if (itemBinding?.content && "match" in itemBinding.content) {
     const itemName = itemBinding.name;

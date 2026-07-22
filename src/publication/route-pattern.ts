@@ -81,11 +81,25 @@ export function normalizeRoutePath(path: string): string {
   return path === "/" ? path : path.replace(/\/+$/, "");
 }
 
+export function isNotFoundRoutePath(path: string): boolean {
+  return path === "*";
+}
+
 export function validateRoutePatterns(
   routes: readonly { readonly path: string }[],
 ): void {
   const seen = new Map<string, string>();
+  let notFoundPath: string | undefined;
   for (const route of routes) {
+    if (isNotFoundRoutePath(route.path)) {
+      if (notFoundPath !== undefined) {
+        throw new Error(
+          `Theme can declare only one not-found route (*); found ${notFoundPath} and ${route.path}`,
+        );
+      }
+      notFoundPath = route.path;
+      continue;
+    }
     const normalized = normalizeRoutePath(route.path);
     if (!normalized.startsWith("/")) {
       throw new Error(`Route path must start with /: ${route.path}`);
