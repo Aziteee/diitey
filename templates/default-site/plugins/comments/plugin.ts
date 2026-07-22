@@ -1,15 +1,47 @@
 import { definePlugin, PluginNotFoundError } from "diitey";
 import { z } from "zod";
+import { planCommentNotifications } from "./notify.ts";
+
+const optionalEmailConfig = z
+  .union([z.string().trim().email().max(254), z.literal(""), z.null()])
+  .optional()
+  .transform((value) => (value === "" || value == null ? null : value));
+
+const optionalBaseUrlConfig = z
+  .union([
+    z
+      .string()
+      .trim()
+      .url()
+      .refine(
+        (value) =>
+          value.startsWith("https://") || value.startsWith("http://"),
+        "publicBaseUrl must be an http(s) origin",
+      ),
+    z.literal(""),
+    z.null(),
+  ])
+  .optional()
+  .transform((value) => {
+    if (value === "" || value == null) return null;
+    return value.replace(/\/+$/, "");
+  });
 
 const commentsPluginConfig = z
   .object({
     maxBodyLength: z.number().int().positive().max(10_000),
     maxAuthorNameLength: z.number().int().positive().max(200),
+    /** Site owner address for new-comment notifications; null disables owner channel. */
+    ownerEmail: optionalEmailConfig,
+    /** Absolute origin for links in notification mail; null keeps site-relative paths. */
+    publicBaseUrl: optionalBaseUrlConfig,
   })
   .strict()
   .default({
     maxBodyLength: 2_000,
     maxAuthorNameLength: 40,
+    ownerEmail: null,
+    publicBaseUrl: null,
   });
 
 export type CommentsPluginConfig = z.infer<typeof commentsPluginConfig>;
@@ -226,7 +258,7 @@ export default definePlugin({
 
     return {
       id: "comments",
-      version: "1.2.0",
+      version: "1.3.0",
       schemaVersion: 3,
 
       adminPage: {
@@ -450,7 +482,7 @@ export default definePlugin({
         "comments.create": {
           input: createInput,
           output: commentNodeOutput,
-          handler(input, { content, database, requestMeta }) {
+          async handler(input, { content, database, requestMeta, call, log }) {
             if (!content.exists(input.contentId)) {
               throw new PluginNotFoundError("content does not exist");
             }
@@ -458,6 +490,7 @@ export default definePlugin({
             const parentId = input.parentId ?? null;
             const replyToId = input.replyToId ?? null;
             let replyTo: ReplyTo | null = null;
+            let replyTargetEmail: string | null = null;
 
             if (parentId === null) {
               if (replyToId !== null) {
@@ -507,6 +540,10 @@ export default definePlugin({
                   id: target.id,
                   authorName: target.authorName,
                 };
+                // replyTo preferred; fall back to root author when target has no email.
+                replyTargetEmail = target.email ?? parent.email;
+              } else {
+                replyTargetEmail = parent.email;
               }
             }
 
@@ -547,7 +584,7 @@ export default definePlugin({
                 userAgent,
               );
 
-            return {
+            const node = {
               id: Number(result.lastInsertRowid),
               contentId: input.contentId,
               parentId,
@@ -557,6 +594,42 @@ export default definePlugin({
               body: input.body,
               createdAt,
             } satisfies CommentNode;
+
+            const summary = content.get(input.contentId);
+            const mails = planCommentNotifications({
+              ownerEmail: config.ownerEmail ?? null,
+              publicBaseUrl: config.publicBaseUrl ?? null,
+              contentId: input.contentId,
+              contentTitle: summary
+                ? readContentTitle(summary.attributes)
+                : null,
+              contentUrl: summary?.url ?? null,
+              authorName: input.authorName,
+              authorEmail: email,
+              body: input.body,
+              isReply: parentId !== null,
+              replyTargetEmail:
+                parentId === null ? null : replyTargetEmail,
+            });
+
+            for (const mail of mails) {
+              try {
+                await call("mail.send", {
+                  to: mail.to,
+                  subject: mail.subject,
+                  text: mail.text,
+                  replyTo: mail.replyTo,
+                });
+              } catch (error) {
+                log.warn(
+                  `comment notification failed for ${mail.to}: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                );
+              }
+            }
+
+            return node;
           },
         },
       },
@@ -578,7 +651,8 @@ export default definePlugin({
           service: "comments.create",
           bodyLimitBytes: 4_096,
           rateLimit: { limit: 10, windowMs: 60_000 },
-          timeoutMs: 2_000,
+          // Allows best-effort notification (mail has its own shorter deadline).
+          timeoutMs: 5_000,
         },
         delete: {
           service: "comments.delete",

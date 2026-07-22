@@ -173,6 +173,9 @@ export function toContentSummary(
   });
 }
 
+/** Root Action/service call is depth 0; each nested `context.call` increments by 1. */
+export const MAX_PLUGIN_SERVICE_CALL_DEPTH = 3;
+
 export async function callPluginService(
   runtime: PluginRuntime,
   name: string,
@@ -182,7 +185,14 @@ export async function callPluginService(
   signal: AbortSignal = new AbortController().signal,
   logger: Logger = createSilentLogger(),
   requestMeta?: PluginRequestMeta,
+  depth = 0,
 ): Promise<unknown> {
+  if (depth > MAX_PLUGIN_SERVICE_CALL_DEPTH) {
+    throw new Error(
+      `Plugin service call depth exceeded (max ${MAX_PLUGIN_SERVICE_CALL_DEPTH})`,
+    );
+  }
+
   const service = runtime.services[name];
   if (!service) throw new Error(`Unknown plugin service: ${name}`);
   let parsedInput: unknown;
@@ -213,6 +223,19 @@ export async function callPluginService(
         return contentLookup.get(contentId);
       },
     }),
+    call(nestedName: string, nestedInput: unknown) {
+      return callPluginService(
+        runtime,
+        nestedName,
+        nestedInput,
+        database,
+        contentLookup,
+        signal,
+        logger,
+        undefined,
+        depth + 1,
+      );
+    },
     ...(requestMeta === undefined ? {} : { requestMeta }),
   });
   return service.output.parse(output);

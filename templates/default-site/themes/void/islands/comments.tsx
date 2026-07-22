@@ -319,7 +319,8 @@ function CommentPanel({
               type="email"
               maxLength={254}
               autoComplete="email"
-              placeholder="optional"
+              placeholder="optional · for reply notice"
+              title="Optional. If provided, you may receive email when someone replies."
               value={email}
               onInput={(event) => setEmail(event.currentTarget.value)}
             />

@@ -133,7 +133,12 @@ export interface PluginServiceContext {
     exists(contentId: string): boolean;
     get(contentId: string): ContentSummary | undefined;
   };
-  /** Present only on public Action invocations. */
+  /**
+   * Invoke another registered plugin service in-process (awaitable).
+   * Does not forward requestMeta. Subject to call depth limits.
+   */
+  call(name: string, input: unknown): Promise<unknown>;
+  /** Present only on public Action invocations (not on nested plugin service calls). */
   readonly requestMeta?: PluginRequestMeta;
 }
 

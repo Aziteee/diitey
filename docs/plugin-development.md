@@ -220,7 +220,8 @@ handler 上下文包含：
 | `log` | 带插件 ID 的 `info`、`warn`、`error` 日志接口 |
 | `content.exists(id)` | 判断当前有效发布视图中是否存在内容 ID |
 | `content.get(id)` | 读取不含正文 HTML 的只读 `ContentSummary` |
-| `requestMeta` | 仅 public Action 调用时可用的客户端地址与 User-Agent |
+| `call(name, input)` | 进程内调用另一已注册插件服务（返回 Promise）；不转发 `requestMeta`，有深度上限；未知服务抛错 |
+| `requestMeta` | 仅 public Action 顶层调用时可用；嵌套 `call` 不注入 |
 
 输入会在 handler 前解析，输出会在 handler 后解析。不要返回无法通过输出 schema 的值。服务输出可为 JSON 可表达的数组、对象、字符串、数字、布尔值或 `null`，管理页数据还必须可 JSON 序列化。
 

@@ -27,12 +27,38 @@ plugins: [
     config: {
       maxBodyLength: 2000,
       maxAuthorNameLength: 40,
+      // Optional email notifications (requires mail plugin + SMTP):
+      // ownerEmail: "you@example.com",
+      // publicBaseUrl: "https://example.com",
     },
   },
+  // {
+  //   use: "./plugins/mail/plugin.ts",
+  //   config: {
+  //     host: "smtp.example.com",
+  //     port: 587,
+  //     from: "Site <noreply@example.com>",
+  //     user: "noreply@example.com",
+  //     pass: process.env.SMTP_PASS,
+  //   },
+  // },
 ],
 ```
 
 配置变更需重启。首次启动会应用迁移 `0001-create-comments`；已有库会再应用 `0002-add-website`。
+
+## 邮件通知
+
+创建成功后**尽力**发信；失败或未装 mail 插件只记日志，不影响入库。
+
+| 通道 | 条件 |
+|------|------|
+| 站主 | 配置了 `ownerEmail`；每条新评论 |
+| 被回复者 | 回复时：优先 `replyToId` 的 email，缺则回落到根评论 email；最终无地址则跳过 |
+
+规则：收件地址去重（同址优先站主文案）；提交者自己的 email 不收。留下 email 即可能收回复通知（表单宜说明用途）。
+
+`publicBaseUrl` 用于拼绝对链接；缺省则正文只写站内路径或标题。站主信在访客填了 email 时设 `Reply-To`。
 
 ## 服务
 
