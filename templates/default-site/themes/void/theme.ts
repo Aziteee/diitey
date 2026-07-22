@@ -140,6 +140,7 @@ export default defineTheme({
             },
           }),
         ),
+        route("*", page("not-found", {})),
       ],
     };
   },
