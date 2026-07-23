@@ -5,6 +5,7 @@ import BackLink from "../islands/back-link.tsx";
 import ImageGallery from "../islands/image-gallery.tsx";
 import { SiteFooter } from "../shared/footer.tsx";
 import { NoteList } from "../shared/note-list.tsx";
+import { hasMusicPlayer, MusicPlayerEnhancer } from "../shared/music-player.tsx";
 
 interface NotesProps {
   readonly notes: readonly ContentRecord[];
@@ -27,6 +28,10 @@ export default function Notes({
         </h1>
         <NoteList notes={notes} commentCounts={commentCounts.counts} />
       </section>
+
+      {notes.some((note) => hasMusicPlayer(note.html)) ? (
+        <MusicPlayerEnhancer />
+      ) : null}
 
       {pagination.prevHref || pagination.nextHref ? (
         <nav aria-label="笔记分页" class="pagination">

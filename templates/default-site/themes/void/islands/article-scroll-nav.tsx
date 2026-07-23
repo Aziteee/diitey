@@ -87,12 +87,12 @@ export default function ArticleScrollNav({
       titleHeading.id = titleId;
       next.push({ id: titleId, label: titleLabel });
 
-      for (const heading of content.querySelectorAll<HTMLElement>(":scope > h2")) {
+      content.querySelectorAll<HTMLElement>(":scope > h2").forEach((heading) => {
         const label = (heading.textContent || "").trim() || title;
         const id = uniqueHeadingId(heading.id || slugify(label), usedIds);
         heading.id = id;
         next.push({ id, label });
-      }
+      });
 
       setHeadings((prev) =>
         prev.length === next.length

@@ -5,6 +5,7 @@ import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import BackLink from "../islands/back-link.tsx";
 import Comments from "../islands/comments.tsx";
 import ImageGallery from "../islands/image-gallery.tsx";
+import { hasMusicPlayer, MusicPlayerEnhancer } from "../shared/music-player.tsx";
 
 interface PostProps {
   readonly post: ContentRecord;
@@ -41,6 +42,8 @@ export default function Post({ post }: PostProps) {
           dangerouslySetInnerHTML={{ __html: post.html }}
         />
       </article>
+
+      {hasMusicPlayer(post.html) ? <MusicPlayerEnhancer /> : null}
 
       <Island
         name="comments"

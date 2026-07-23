@@ -3,6 +3,7 @@ import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import BackLink from "../islands/back-link.tsx";
 import Comments from "../islands/comments.tsx";
 import ImageGallery from "../islands/image-gallery.tsx";
+import { hasMusicPlayer, MusicPlayerEnhancer } from "../shared/music-player.tsx";
 import { SiteFooter } from "../shared/footer.tsx";
 
 interface PageProps {
@@ -22,6 +23,8 @@ export default function Page({ page }: PageProps) {
           dangerouslySetInnerHTML={{ __html: page.html }}
         />
       </article>
+
+      {hasMusicPlayer(page.html) ? <MusicPlayerEnhancer /> : null}
 
       {showComments ? (
         <Island

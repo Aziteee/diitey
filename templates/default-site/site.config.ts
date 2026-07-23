@@ -15,6 +15,9 @@ export default defineSite({
   },
   plugins: [
     {
+      use: "./plugins/meting/plugin.ts",
+    },
+    {
       use: "./plugins/shiki/plugin.ts",
       config: {
         lightTheme: "vitesse-light",

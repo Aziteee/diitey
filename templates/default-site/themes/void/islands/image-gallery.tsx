@@ -15,11 +15,11 @@ function prepareContentImages(root: ParentNode): number {
   );
   let count = 0;
 
-  for (const img of images) {
+  images.forEach((img) => {
     const src = imageSrc(img);
     if (!src) {
       img.setAttribute(PREPARED, "");
-      continue;
+      return;
     }
 
     const parent = img.parentElement;
@@ -34,7 +34,7 @@ function prepareContentImages(root: ParentNode): number {
       }
       img.setAttribute(PREPARED, "");
       count += 1;
-      continue;
+      return;
     }
 
     const anchor = document.createElement("a");
@@ -48,7 +48,7 @@ function prepareContentImages(root: ParentNode): number {
     anchor.appendChild(img);
     img.setAttribute(PREPARED, "");
     count += 1;
-  }
+  });
 
   return count;
 }
@@ -60,8 +60,8 @@ export default function ImageGallery() {
     const containers = document.querySelectorAll<HTMLElement>(".content");
     const instances: Array<{ destroy: () => void }> = [];
 
-    for (const container of containers) {
-      if (!container.querySelector(`a[${ANCHOR}]`)) continue;
+    containers.forEach((container) => {
+      if (!container.querySelector(`a[${ANCHOR}]`)) return;
 
       const instance = lightGallery(container, {
         selector: `a[${ANCHOR}]`,
@@ -75,7 +75,7 @@ export default function ImageGallery() {
         },
       });
       instances.push(instance);
-    }
+    });
 
     return () => {
       for (const instance of instances) {

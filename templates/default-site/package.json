@@ -8,6 +8,8 @@
     "status": "bun ../../index.ts status --root ."
   },
   "dependencies": {
+    "@arraypress/waveform-player": "^1.23.0",
+    "@meting/core": "^1.6.1",
     "@shikijs/rehype": "^4.3.1",
     "diitey": "file:../..",
     "lightgallery": "^2.9.0",

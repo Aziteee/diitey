@@ -10,6 +10,7 @@ import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import ImageGallery from "../islands/image-gallery.tsx";
 import { SiteFooter } from "../shared/footer.tsx";
 import { NoteList } from "../shared/note-list.tsx";
+import { hasMusicPlayer, MusicPlayerEnhancer } from "../shared/music-player.tsx";
 import { PostList } from "../shared/post-list.tsx";
 
 interface HomeProps {
@@ -36,6 +37,9 @@ export default function Home({
   const hasMoreNotes = notes.length > config.homeNotes;
   const linksHtml = links[0]?.html?.trim() ?? "";
   const hasLinks = linksHtml.length > 0;
+  const hasMusic = [homeRecord, ...recentNotes, links[0]].some((record) =>
+    hasMusicPlayer(record?.html),
+  );
 
   return (
     <main class="page-shell page-shell--home">
@@ -85,6 +89,8 @@ export default function Home({
           />
         </section>
       ) : null}
+
+      {hasMusic ? <MusicPlayerEnhancer /> : null}
 
       <SiteFooter />
 

@@ -1,9 +1,55 @@
 @import "tailwindcss";
 @import "../../node_modules/lightgallery/css/lightgallery.css";
 @import "../../node_modules/lightgallery/css/lg-zoom.css";
+@import "../../node_modules/@arraypress/waveform-player/dist/waveform-player.css";
 @source "./pages/**/*.{tsx,ts,jsx,js}";
 @source "./islands/**/*.{tsx,ts,jsx,js}";
 @source "./shared/**/*.{tsx,ts,jsx,js}";
+
+music-player,
+[data-diitey-music-player] {
+  --music-player-surface: color-mix(
+    in srgb,
+    var(--paper) 94%,
+    var(--heading)
+  );
+  display: block;
+  margin-block: 1.5rem;
+  min-height: 5rem;
+  padding: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--music-player-surface);
+  transition:
+    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+music-player:hover,
+music-player:focus-within,
+[data-diitey-music-player]:hover,
+[data-diitey-music-player]:focus-within {
+  border-color: var(--heading);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--heading) 28%, transparent);
+}
+
+music-player .waveform-player,
+[data-diitey-music-player] .waveform-player {
+  --wfp-accent: var(--heading);
+  --wfp-button-color: var(--ink);
+  --wfp-text-color: var(--heading);
+  --wfp-text-secondary-color: var(--muted);
+}
+
+.music-player-status {
+  display: grid;
+  min-height: 5rem;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
 
 @view-transition {
   navigation: auto;
