@@ -1,15 +1,48 @@
+import { useEffect, useState } from "preact/hooks";
+
+type BackTarget = {
+  readonly href: string;
+  readonly label: string;
+};
+
+function resolveBackTarget(): BackTarget {
+  try {
+    const ref = globalThis.document.referrer;
+    if (ref) {
+      const url = new URL(ref);
+      if (
+        url.origin === globalThis.location.origin &&
+        url.pathname === "/archives"
+      ) {
+        return {
+          href: `${url.pathname}${url.search}${url.hash}`,
+          label: "Writing",
+        };
+      }
+    }
+  } catch {
+    // ignore invalid referrer
+  }
+  return { href: "/", label: "Home" };
+}
+
 export default function BackLink() {
+  const [target, setTarget] = useState<BackTarget>({
+    href: "/",
+    label: "Home",
+  });
+
+  useEffect(() => {
+    setTarget(resolveBackTarget());
+  }, []);
+
   return (
     <button
       type="button"
-      aria-label="返回"
+      aria-label={`返回 ${target.label}`}
       class="group back-link"
       onClick={() => {
-        if (globalThis.history.length > 1) {
-          globalThis.history.back();
-          return;
-        }
-        globalThis.location.assign("/");
+        globalThis.location.assign(target.href);
       }}
     >
       <svg
@@ -26,7 +59,7 @@ export default function BackLink() {
           stroke-linejoin="round"
         />
       </svg>
-      <span>Back</span>
+      <span>{target.label}</span>
     </button>
   );
 }
