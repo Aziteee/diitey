@@ -15,6 +15,7 @@
     "lightgallery": "^2.9.0",
     "pangu": "^7.2.1",
     "preact": "^10.29.7",
+    "remark-directive": "^4.0.0",
     "shiki": "^4.3.1",
     "unist-util-visit": "^5.0.0",
     "zod": "^4.4.3"
