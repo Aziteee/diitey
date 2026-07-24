@@ -631,6 +631,14 @@ music-player .waveform-player,
     @apply my-8 block h-auto max-w-full;
   }
 
+  /* WaveformPlayer artwork lives under .content; don't apply article image spacing */
+  .content music-player img,
+  .content [data-diitey-music-player] img {
+    margin: 0;
+    max-width: none;
+    height: auto;
+  }
+
   .content a[data-lg] {
     text-decoration: none;
   }
