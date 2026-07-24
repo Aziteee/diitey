@@ -5,11 +5,13 @@ for the void theme's WaveformPlayer island.
 
 Use a player in Markdown:
 
-```html
-<music-player
-  auto="https://y.qq.com/n/yqq/song/001RGrEX3ija5X.html">
-</music-player>
+```md
+:::music-card{url="https://y.qq.com/n/yqq/song/001RGrEX3ija5X.html"}
+:::
 ```
+
+`auto` is accepted as an alias for `url`. Raw `<music-player auto="…">`
+HTML still works for backward compatibility.
 
 The island loads when the marker approaches the viewport. It calls two
 same-origin public Actions:

@@ -15,6 +15,5 @@ title: "第一条记录"
 :::link-card{url="https://github.com/Aziteee/diitey"}
 :::
 
-<music-player
-  auto="https://music.163.com/#/song?id=1465030798">
-</music-player>
+:::music-card{url="https://music.163.com/#/song?id=1465030798"}
+:::

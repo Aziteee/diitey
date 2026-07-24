@@ -1,6 +1,9 @@
 import Meting from "@meting/core";
 import { definePlugin, PluginNotFoundError } from "diitey";
 import type { Database } from "bun:sqlite";
+import type { Root } from "mdast";
+import remarkDirective from "remark-directive";
+import { visit } from "unist-util-visit";
 import { z } from "zod";
 
 const providerSchema = z.enum(["netease", "tencent"]);
@@ -339,6 +342,9 @@ export function createMetingDefinition(
         timeoutMs: 8_000,
       },
     },
+    markdown: {
+      remarkPlugins: [remarkDirective, remarkMusicCard],
+    },
   } as const;
 }
 
@@ -348,6 +354,73 @@ export default definePlugin({
     return createMetingDefinition(config);
   },
 });
+
+interface DirectiveNode {
+  type: string;
+  name?: string;
+  attributes?: Record<string, string | null | undefined>;
+  children?: unknown[];
+  value?: string;
+}
+
+function remarkMusicCard() {
+  return function transform(tree: Root): void {
+    visit(tree, (node) => {
+      const candidate = node as DirectiveNode;
+      if (
+        (candidate.type !== "containerDirective" &&
+          candidate.type !== "leafDirective") ||
+        candidate.name !== "music-card"
+      ) {
+        return;
+      }
+
+      const url =
+        readAttr(candidate.attributes ?? {}, "url") ??
+        readAttr(candidate.attributes ?? {}, "auto") ??
+        extractLabelUrl(candidate);
+
+      candidate.type = "html";
+      candidate.value = url
+        ? `<music-player auto="${escapeAttr(url)}"></music-player>`
+        : `<!-- music-card: missing url -->`;
+      candidate.children = undefined;
+      candidate.attributes = undefined;
+      candidate.name = undefined;
+    });
+  };
+}
+
+function extractLabelUrl(node: DirectiveNode): string | undefined {
+  const children = node.children as
+    | { type?: string; children?: { type?: string; value?: string }[] }[]
+    | undefined;
+  if (!children?.length) return undefined;
+  const first = children[0];
+  if (first?.type === "paragraph" && first.children?.[0]?.type === "text") {
+    const value = first.children[0].value?.trim();
+    if (value && /^https?:\/\//i.test(value)) return value;
+  }
+  return undefined;
+}
+
+function readAttr(
+  attrs: Record<string, string | null | undefined>,
+  key: string,
+): string | undefined {
+  const value = attrs[key];
+  if (value == null) return undefined;
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
+}
+
+function escapeAttr(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
 
 function isSupportedMusicUrl(raw: string): boolean {
   try {

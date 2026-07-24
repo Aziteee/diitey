@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { buildContentRecord } from "../src/content.ts";
 import {
   buildPluginRuntime,
   callPluginService,
@@ -13,9 +17,15 @@ import metingPlugin, {
 } from "../templates/default-site/plugins/meting/plugin.ts";
 
 const databases: Database[] = [];
+const temporaryRoots: string[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   for (const database of databases.splice(0)) database.close();
+  await Promise.all(
+    temporaryRoots.splice(0).map((root) =>
+      rm(root, { recursive: true, force: true }),
+    ),
+  );
 });
 
 describe("meting plugin", () => {
@@ -212,6 +222,54 @@ describe("meting plugin", () => {
     });
   });
 
+  test("music-card directive renders a music-player marker from url", async () => {
+    const definition = createMetingDefinition(
+      metingPlugin.config.parse(undefined),
+    );
+    const url = "https://music.163.com/#/song?id=1465030798";
+    const html = await renderMarkdown(
+      definition,
+      `:::music-card{url="${url}"}\n:::`,
+    );
+    expect(html).toContain("<music-player");
+    expect(html).toContain(`auto="${url}"`);
+  });
+
+  test("music-card directive accepts auto as an alias for url", async () => {
+    const definition = createMetingDefinition(
+      metingPlugin.config.parse(undefined),
+    );
+    const url = "https://y.qq.com/n/yqq/song/001RGrEX3ija5X.html";
+    const html = await renderMarkdown(
+      definition,
+      `:::music-card{auto="${url}"}\n:::`,
+    );
+    expect(html).toContain("<music-player");
+    expect(html).toContain(`auto="${url}"`);
+  });
+
+  test("music-card directive without url emits a missing-url comment", async () => {
+    const definition = createMetingDefinition(
+      metingPlugin.config.parse(undefined),
+    );
+    const html = await renderMarkdown(definition, `:::music-card\n:::`);
+    expect(html).toContain("<!-- music-card: missing url -->");
+    expect(html).not.toContain("<music-player");
+  });
+
+  test("raw music-player html still passes through", async () => {
+    const definition = createMetingDefinition(
+      metingPlugin.config.parse(undefined),
+    );
+    const url = "https://music.163.com/#/song?id=1465030798";
+    const html = await renderMarkdown(
+      definition,
+      `<music-player auto="${url}"></music-player>`,
+    );
+    expect(html).toContain("<music-player");
+    expect(html).toContain(`auto="${url}"`);
+  });
+
   test("metadata discards an incompatible cached identifier", async () => {
     let songCalls = 0;
     const definition = createMetingDefinition(
@@ -317,4 +375,28 @@ function migratedDatabase(
   databases.push(database);
   for (const migration of definition.migrations) database.run(migration.sql);
   return database;
+}
+
+async function renderMarkdown(
+  definition: ReturnType<typeof createMetingDefinition>,
+  body: string,
+): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "meting-md-"));
+  temporaryRoots.push(root);
+  const filePath = join(root, "page.md");
+  await Bun.write(
+    filePath,
+    `---
+id: "page"
+created: "2026-07-24"
+---
+
+${body}
+`,
+  );
+  const record = await buildContentRecord(filePath, "page.md", {
+    remarkPlugins: definition.markdown?.remarkPlugins ?? [],
+    rehypePlugins: [],
+  });
+  return record.html;
 }
