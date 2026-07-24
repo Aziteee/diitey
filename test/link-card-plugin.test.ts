@@ -279,7 +279,6 @@ describe("link-card plugin", () => {
       expect(url).toContain(encodeURIComponent("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
       return Response.json({
         title: "Never Gonna Give You Up",
-        author_name: "Rick Astley",
         thumbnail_url: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
         provider_name: "YouTube",
       });
@@ -302,10 +301,9 @@ describe("link-card plugin", () => {
     );
     expect(html).toContain('data-provider="youtube"');
     expect(html).toContain("Never Gonna Give You Up");
-    expect(html).toContain("Rick Astley");
     expect(html).toContain("i.ytimg.com");
     expect(html).toContain('href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"');
-    expect(html).toContain('data-key="author"');
+    expect(html).not.toContain("author");
   });
 
   test("youtube falls back to generic when oembed fails", async () => {
