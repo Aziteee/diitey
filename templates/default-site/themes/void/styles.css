@@ -31,8 +31,8 @@ music-player:hover,
 music-player:focus-within,
 [data-diitey-music-player]:hover,
 [data-diitey-music-player]:focus-within {
-  border-color: var(--heading);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--heading) 28%, transparent);
+  border-color: color-mix(in srgb, var(--heading) 50%, var(--border));
+  box-shadow: none;
 }
 
 music-player .waveform-player,
@@ -154,7 +154,7 @@ music-player .waveform-player,
       --paper: #0a0a0a;
       --heading: #f5f5f5;
       --ink: color-mix(in hsl, var(--heading) 85%, var(--paper));
-      --muted: #5a5858;
+      --muted: #8c8c8c;
       --border: #262626;
       --soft: #171717;
     }
