@@ -78,7 +78,7 @@ export default function Comments({
   };
 
   return (
-    <div class={mode === "toggle" ? "note-comments" : undefined}>
+    <div class={mode === "toggle" ? "mt-3.5" : undefined}>
       {mode === "toggle" ? (
         <button
           type="button"
@@ -90,7 +90,7 @@ export default function Comments({
           onClick={toggle}
         >
           <CommentIcon />
-          <span class="comment-toggle-count">{count}</span>
+          <span class="min-w-[0.75rem]">{count}</span>
         </button>
       ) : null}
       {activated ? (
@@ -404,7 +404,7 @@ function CommentPanel({
       ) : null}
 
       {!loading && hasMore ? (
-        <div class="comment-load-more">
+        <div class="mt-5">
           <button
             type="button"
             class="btn-ghost"
@@ -431,7 +431,7 @@ function CommentItem({
       <header class="mb-1.5 flex flex-wrap items-baseline gap-3">
         {comment.website ? (
           <a
-            class="comment-author comment-author-link"
+            class="comment-author no-underline hover:opacity-70"
             href={comment.website}
             target="_blank"
             rel="noopener noreferrer nofollow ugc"
@@ -467,7 +467,7 @@ function CommentItem({
 function CommentIcon() {
   return (
     <svg
-      class="comment-toggle-icon"
+      class="h-4 w-4 shrink-0"
       viewBox="0 0 20 20"
       fill="none"
       aria-hidden="true"

@@ -163,7 +163,8 @@ async function postJson<Value>(
 
 function setStatus(element: HTMLElement, text: string): void {
   const status = document.createElement("span");
-  status.className = "music-player-status";
+  status.className =
+    "grid min-h-20 place-items-center text-sm text-[color:var(--muted)]";
   status.textContent = text;
   element.replaceChildren(status);
 }

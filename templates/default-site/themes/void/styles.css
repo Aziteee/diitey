@@ -21,6 +21,10 @@ music-player,
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   background: var(--music-player-surface);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei",
+    sans-serif;
   transition:
     border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -35,20 +39,21 @@ music-player:focus-within,
   box-shadow: none;
 }
 
+/* Beat .content / .page-shell serif inheritance (library uses font-family: inherit). */
+.content music-player,
+.content [data-diitey-music-player],
+.content music-player .waveform-player,
+.content [data-diitey-music-player] .waveform-player,
 music-player .waveform-player,
 [data-diitey-music-player] .waveform-player {
   --wfp-accent: var(--heading);
   --wfp-button-color: var(--ink);
   --wfp-text-color: var(--heading);
   --wfp-text-secondary-color: var(--muted);
-}
-
-.music-player-status {
-  display: grid;
-  min-height: 5rem;
-  place-items: center;
-  color: var(--muted);
-  font-size: 0.875rem;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei",
+    sans-serif;
 }
 
 @view-transition {
@@ -183,33 +188,6 @@ music-player .waveform-player,
     @apply mx-auto w-full max-w-[45rem] px-6 py-12 font-serif sm:px-8 sm:py-16;
   }
 
-  .page-shell--home {
-    @apply py-16 sm:py-24;
-  }
-
-  .site-footer {
-    @apply mt-20 font-sans text-xs tracking-[0.02em] text-neutral-500
-      dark:text-neutral-500 sm:mt-28;
-  }
-
-  .site-footer-line {
-    @apply m-0;
-  }
-
-  .site-footer-line + .site-footer-line {
-    @apply mt-1.5;
-  }
-
-  .site-footer-sep {
-    @apply mx-1.5;
-  }
-
-  .site-footer-beian {
-    @apply text-inherit no-underline hover:text-neutral-800 focus-visible:text-neutral-800
-      focus-visible:outline-none dark:hover:text-neutral-200 dark:focus-visible:text-neutral-200;
-    text-decoration: none;
-  }
-
   /* —— Links —— */
   .animated-link,
   .content a {
@@ -231,10 +209,6 @@ music-player .waveform-player,
 
   .animated-link {
     @apply focus-visible:outline-none;
-  }
-
-  .section-more {
-    @apply shrink-0 text-sm text-neutral-500 dark:text-neutral-500;
   }
 
   .back-link {
@@ -277,41 +251,6 @@ music-player .waveform-player,
     @apply m-0 list-none p-0;
   }
 
-  .list-row {
-    @apply -mx-4 border-b border-neutral-200 last:border-b-0 dark:border-neutral-800;
-  }
-
-  .post-list-link {
-    @apply grid gap-2 px-4 py-5 no-underline outline-none transition-colors duration-300
-      hover:bg-white focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-neutral-300
-      sm:grid-cols-[8rem_1fr] sm:items-baseline sm:gap-6
-      dark:hover:bg-neutral-900 dark:focus-visible:bg-neutral-900 dark:focus-visible:ring-neutral-700;
-  }
-
-  .post-list-date {
-    @apply text-sm tabular-nums text-neutral-500 transition-colors duration-300
-      group-hover:text-neutral-800 group-focus-visible:text-neutral-800
-      dark:text-neutral-500 dark:group-hover:text-neutral-200 dark:group-focus-visible:text-neutral-200;
-  }
-
-  .post-list-title {
-    @apply text-lg font-normal leading-7 tracking-[-0.015em] text-neutral-700 transition-colors duration-300
-      group-hover:text-neutral-950 group-focus-visible:text-neutral-950
-      dark:text-neutral-300 dark:group-hover:text-white dark:group-focus-visible:text-white;
-  }
-
-  .note-list-item {
-    @apply -mx-4 border-b border-neutral-200 px-4 py-5 last:border-b-0 dark:border-neutral-800;
-  }
-
-  .note-list-date {
-    @apply mb-2 block text-sm tabular-nums text-neutral-500 dark:text-neutral-500;
-  }
-
-  .note-comments {
-    @apply mt-3.5;
-  }
-
   .comment-toggle {
     @apply m-0 inline-flex items-center gap-1.5 border-0 bg-transparent p-0
       font-sans text-xs tracking-[0.04em] tabular-nums text-neutral-500
@@ -320,24 +259,12 @@ music-player .waveform-player,
       dark:text-neutral-500 dark:hover:text-neutral-100 dark:focus-visible:text-neutral-100;
   }
 
-  .comment-toggle-icon {
-    @apply h-4 w-4 shrink-0;
-  }
-
-  .comment-toggle-count {
-    @apply min-w-[0.75rem];
-  }
-
   .comment-panel {
     @apply mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800;
   }
 
   .comment-status {
     @apply m-0 font-sans text-[0.8125rem] text-neutral-500 dark:text-neutral-500;
-  }
-
-  .comment-load-more {
-    @apply mt-5;
   }
 
   /* —— Forms / buttons —— */
@@ -414,10 +341,6 @@ music-player .waveform-player,
 
   .comment-author {
     @apply font-sans text-sm font-medium tracking-[-0.01em] text-neutral-950 dark:text-neutral-100;
-  }
-
-  .comment-author-link {
-    @apply no-underline hover:opacity-70;
   }
 
   .comment-time {

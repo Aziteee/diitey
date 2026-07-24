@@ -6,11 +6,14 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
   const beian = config.beian?.trim() ?? "";
 
+  const beianLinkClass =
+    "text-inherit no-underline hover:text-neutral-800 focus-visible:text-neutral-800 focus-visible:outline-none dark:hover:text-neutral-200 dark:focus-visible:text-neutral-200";
+
   return (
-    <footer class="site-footer">
-      <p class="site-footer-line">
+    <footer class="mt-20 font-sans text-xs tracking-[0.02em] text-neutral-500 dark:text-neutral-500 sm:mt-28">
+      <p class="m-0">
         © {year} {config.siteName}
-        <span class="site-footer-sep" aria-hidden="true">
+        <span class="mx-1.5" aria-hidden="true">
           ·
         </span>
         Powered by{" "}
@@ -18,18 +21,18 @@ export function SiteFooter() {
           href="https://github.com/Aziteee/diitey"
           target="_blank"
           rel="noopener noreferrer"
-          class="site-footer-beian"
+          class={beianLinkClass}
         >
           Diitey
         </a>
       </p>
       {beian ? (
-        <p class="site-footer-line">
+        <p class="m-0 mt-1.5">
           <a
             href="https://beian.miit.gov.cn/"
             target="_blank"
             rel="noopener noreferrer"
-            class="site-footer-beian"
+            class={beianLinkClass}
           >
             {beian}
           </a>

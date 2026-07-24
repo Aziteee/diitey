@@ -16,8 +16,11 @@ export function NoteList({
   return (
     <ol class="list-reset">
       {notes.map((note) => (
-        <li class="note-list-item">
-          <time datetime={note.created} class="note-list-date">
+        <li class="-mx-4 border-b border-neutral-200 px-4 py-5 last:border-b-0 dark:border-neutral-800">
+          <time
+            datetime={note.created}
+            class="mb-2 block text-sm tabular-nums text-neutral-500 dark:text-neutral-500"
+          >
             {formatDate(note.created)}
           </time>
           <div

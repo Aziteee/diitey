@@ -42,7 +42,7 @@ export default function Home({
   );
 
   return (
-    <main class="page-shell page-shell--home">
+    <main class="mx-auto w-full max-w-[45rem] px-6 py-16 font-serif sm:px-8 sm:py-24">
       <div
         class="content home-content mb-20 sm:mb-28"
         dangerouslySetInnerHTML={{ __html: homeRecord?.html ?? "" }}
@@ -54,7 +54,10 @@ export default function Home({
             Writing
           </h2>
           {hasMorePosts ? (
-            <a href="/archives" class="animated-link section-more">
+            <a
+              href="/archives"
+              class="animated-link shrink-0 text-sm text-neutral-500 dark:text-neutral-500"
+            >
               查看更多
             </a>
           ) : null}
@@ -68,7 +71,10 @@ export default function Home({
             Notes
           </h2>
           {hasMoreNotes ? (
-            <a href="/notes" class="animated-link section-more">
+            <a
+              href="/notes"
+              class="animated-link shrink-0 text-sm text-neutral-500 dark:text-neutral-500"
+            >
               查看更多
             </a>
           ) : null}
