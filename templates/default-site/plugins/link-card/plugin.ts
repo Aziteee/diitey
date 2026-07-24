@@ -89,7 +89,9 @@ interface ResolveInput {
   readonly refresh?: boolean;
 }
 
-type ProviderId = "github" | "generic";
+type ProviderId = "github" | "youtube" | "generic";
+
+const YOUTUBE_VIDEO_ID = /^[\w-]{11}$/;
 
 const cachePayloadSchema = z
   .object({
@@ -252,6 +254,36 @@ export function matchGithubRepo(
   return { owner, repo };
 }
 
+export function matchYoutubeVideo(raw: string): { videoId: string } | null {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  const parts = url.pathname.split("/").filter(Boolean);
+
+  let videoId: string | null = null;
+  if (host === "youtu.be") {
+    videoId = parts[0] ?? null;
+  } else if (host === "youtube.com" || host === "m.youtube.com") {
+    if (parts[0] === "watch") {
+      videoId = url.searchParams.get("v");
+    } else if (
+      (parts[0] === "embed" || parts[0] === "shorts" || parts[0] === "live") &&
+      parts[1]
+    ) {
+      videoId = parts[1];
+    } else if (parts[0] === "v" && parts[1]) {
+      videoId = parts[1];
+    }
+  }
+
+  if (!videoId || !YOUTUBE_VIDEO_ID.test(videoId)) return null;
+  return { videoId };
+}
+
 export function parseOpenGraph(html: string, pageUrl: string): LinkCardMetadata {
   const title =
     metaContent(html, "og:title") ??
@@ -319,7 +351,7 @@ export function renderLinkCardHtml(meta: LinkCardMetadata): string {
 function renderExtras(
   extras: Readonly<Record<string, string>>,
 ): string {
-  const preferred = ["language", "stars", "forks"] as const;
+  const preferred = ["language", "stars", "forks", "author"] as const;
   const seen = new Set<string>();
   const parts: string[] = [];
 
@@ -527,6 +559,13 @@ async function fetchMetadata(
       // fall through to generic
     }
   }
+  if (provider === "youtube") {
+    try {
+      return await fetchYoutube(url, options);
+    } catch {
+      // fall through to generic
+    }
+  }
   return fetchGeneric(url, options);
 }
 
@@ -537,7 +576,9 @@ function resolveProvider(
   const normalized = override?.trim().toLowerCase();
   if (normalized === "generic") return "generic";
   if (normalized === "github") return "github";
+  if (normalized === "youtube") return "youtube";
   if (matchGithubRepo(url)) return "github";
+  if (matchYoutubeVideo(url)) return "youtube";
   return "generic";
 }
 
@@ -588,6 +629,50 @@ async function fetchGithub(
     image: data.owner?.avatar_url ?? null,
     siteName: "GitHub",
     provider: "github",
+    extras,
+    degraded: false,
+  };
+}
+
+async function fetchYoutube(
+  url: string,
+  options: {
+    readonly fetchImpl: FetchLike;
+    readonly config: LinkCardPluginConfig;
+  },
+): Promise<LinkCardMetadata> {
+  const match = matchYoutubeVideo(url);
+  if (!match) throw new Error("not a youtube video url");
+  const watchUrl = `https://www.youtube.com/watch?v=${match.videoId}`;
+  const oembedUrl =
+    `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watchUrl)}`;
+  const response = await fetchPublic(oembedUrl, options, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": options.config.userAgent,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`youtube oembed ${response.status}`);
+  }
+  const data = (await response.json()) as {
+    title?: string;
+    author_name?: string;
+    thumbnail_url?: string;
+    provider_name?: string;
+  };
+  const extras: Record<string, string> = {};
+  if (data.author_name?.trim()) {
+    extras.author = data.author_name.trim();
+  }
+
+  return {
+    url: watchUrl,
+    title: data.title?.trim() || `YouTube ${match.videoId}`,
+    description: null,
+    image: data.thumbnail_url?.trim() || null,
+    siteName: data.provider_name?.trim() || "YouTube",
+    provider: "youtube",
     extras,
     degraded: false,
   };

@@ -8,6 +8,7 @@ import {
   isPublicHttpUrl,
   languageColor,
   matchGithubRepo,
+  matchYoutubeVideo,
   normalizeUrl,
   parseOpenGraph,
   renderLinkCardHtml,
@@ -45,6 +46,25 @@ describe("link-card helpers", () => {
       repo: "repo",
     });
     expect(matchGithubRepo("https://github.com/owner/repo/issues/1")).toBe(
+      null,
+    );
+  });
+
+  test("matches youtube watch, short, embed, and shorts urls", () => {
+    expect(matchYoutubeVideo("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toEqual(
+      { videoId: "dQw4w9WgXcQ" },
+    );
+    expect(matchYoutubeVideo("https://youtu.be/dQw4w9WgXcQ")).toEqual({
+      videoId: "dQw4w9WgXcQ",
+    });
+    expect(matchYoutubeVideo("https://www.youtube.com/embed/dQw4w9WgXcQ")).toEqual(
+      { videoId: "dQw4w9WgXcQ" },
+    );
+    expect(matchYoutubeVideo("https://www.youtube.com/shorts/dQw4w9WgXcQ")).toEqual(
+      { videoId: "dQw4w9WgXcQ" },
+    );
+    expect(matchYoutubeVideo("https://www.youtube.com/watch?v=bad")).toBe(null);
+    expect(matchYoutubeVideo("https://example.com/watch?v=dQw4w9WgXcQ")).toBe(
       null,
     );
   });
@@ -249,6 +269,84 @@ describe("link-card plugin", () => {
     );
     expect(afterFail).toContain("V2");
     expect(hits).toBe(3);
+  });
+
+  test("resolves youtube via oembed with author extras", async () => {
+    const cachePath = await tempCachePath();
+    const fetchImpl: FetchLike = async (input) => {
+      const url = String(input);
+      expect(url).toContain("youtube.com/oembed");
+      expect(url).toContain(encodeURIComponent("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+      return Response.json({
+        title: "Never Gonna Give You Up",
+        author_name: "Rick Astley",
+        thumbnail_url: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+        provider_name: "YouTube",
+      });
+    };
+
+    const definition = createLinkCardDefinition(
+      {
+        fetchTimeoutMs: 5_000,
+        maxRedirects: 3,
+        maxBodyBytes: 100_000,
+        userAgent: "test",
+        githubToken: "",
+      },
+      { fetch: fetchImpl, cachePath },
+    );
+
+    const html = await renderMarkdown(
+      definition,
+      `:::link-card{url="https://youtu.be/dQw4w9WgXcQ"}\n:::`,
+    );
+    expect(html).toContain('data-provider="youtube"');
+    expect(html).toContain("Never Gonna Give You Up");
+    expect(html).toContain("Rick Astley");
+    expect(html).toContain("i.ytimg.com");
+    expect(html).toContain('href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"');
+    expect(html).toContain('data-key="author"');
+  });
+
+  test("youtube falls back to generic when oembed fails", async () => {
+    const cachePath = await tempCachePath();
+    const fetchImpl: FetchLike = async (input) => {
+      const url = String(input);
+      if (url.includes("oembed")) {
+        return new Response("nope", { status: 404 });
+      }
+      if (url.includes("youtube.com/watch")) {
+        return new Response(
+          `<html><head>
+            <meta property="og:title" content="OG Title" />
+            <meta property="og:site_name" content="YouTube" />
+          </head></html>`,
+          {
+            status: 200,
+            headers: { "content-type": "text/html" },
+          },
+        );
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    };
+
+    const definition = createLinkCardDefinition(
+      {
+        fetchTimeoutMs: 5_000,
+        maxRedirects: 3,
+        maxBodyBytes: 100_000,
+        userAgent: "test",
+        githubToken: "",
+      },
+      { fetch: fetchImpl, cachePath },
+    );
+
+    const html = await renderMarkdown(
+      definition,
+      `:::link-card{url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"}\n:::`,
+    );
+    expect(html).toContain("OG Title");
+    expect(html).not.toContain('data-provider="youtube"');
   });
 
   test("blocks private redirect targets", async () => {

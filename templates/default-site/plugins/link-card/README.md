@@ -15,13 +15,14 @@ Content-snapshot Markdown extension that turns declared URLs into static link ca
 :::
 ```
 
-Optional attributes: `title`, `description`, `image`, `siteName`, `provider` (`github` | `generic`), `refresh`.
+Optional attributes: `title`, `description`, `image`, `siteName`, `provider` (`github` | `youtube` | `generic`), `refresh`.
 
 ## Behavior
 
 - Resolves at content snapshot time (build / reload), not per request.
 - Generic pages: Open Graph / Twitter / `<title>` metadata.
 - GitHub repository URLs use the GitHub API when available, otherwise fall back to generic fetch.
+- YouTube watch / `youtu.be` / embed / shorts URLs use the YouTube oEmbed API when available, otherwise fall back to generic fetch.
 - Successful results are cached under `data/link-card-cache.sqlite` (never expire). `refresh` forces a re-fetch; on failure the last successful cache entry is kept.
 - Fetch failures without cache degrade to a skeleton card (hostname as title); the snapshot still succeeds.
 - Outbound requests only allow public `http(s)` targets (no localhost / private IPs), with redirect, timeout, and body size limits.
