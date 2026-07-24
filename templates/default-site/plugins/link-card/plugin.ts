@@ -351,7 +351,7 @@ export function renderLinkCardHtml(meta: LinkCardMetadata): string {
 function renderExtras(
   extras: Readonly<Record<string, string>>,
 ): string {
-  const preferred = ["language", "stars", "forks"] as const;
+  const preferred = ["language", "stars", "forks", "author"] as const;
   const seen = new Set<string>();
   const parts: string[] = [];
 
@@ -389,6 +389,13 @@ function renderExtra(key: string, value: string): string {
     return (
       `<span class="link-card__extra link-card__extra--language" data-key="language">` +
       `<span class="link-card__lang-dot" style="background:${escapeAttr(color)}" aria-hidden="true"></span>` +
+      `<span class="link-card__extra-value">${escapeHtml(value)}</span>` +
+      `</span>`
+    );
+  }
+  if (key === "author") {
+    return (
+      `<span class="link-card__extra link-card__extra--author" data-key="author">` +
       `<span class="link-card__extra-value">${escapeHtml(value)}</span>` +
       `</span>`
     );
@@ -657,9 +664,14 @@ async function fetchYoutube(
   }
   const data = (await response.json()) as {
     title?: string;
+    author_name?: string;
     thumbnail_url?: string;
     provider_name?: string;
   };
+  const extras: Record<string, string> = {};
+  if (data.author_name?.trim()) {
+    extras.author = data.author_name.trim();
+  }
 
   return {
     url: watchUrl,
@@ -668,7 +680,7 @@ async function fetchYoutube(
     image: data.thumbnail_url?.trim() || null,
     siteName: data.provider_name?.trim() || "YouTube",
     provider: "youtube",
-    extras: {},
+    extras,
     degraded: false,
   };
 }
