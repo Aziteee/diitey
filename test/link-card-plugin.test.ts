@@ -6,6 +6,7 @@ import { buildContentRecord } from "../src/content.ts";
 import {
   createLinkCardDefinition,
   isPublicHttpUrl,
+  languageColor,
   matchGithubRepo,
   normalizeUrl,
   parseOpenGraph,
@@ -80,6 +81,11 @@ describe("link-card helpers", () => {
     expect(html).toContain('href="https://example.com"');
     expect(html).toContain("Example");
     expect(html).toContain("Desc");
+  });
+
+  test("maps known language colors and falls back for unknowns", () => {
+    expect(languageColor("TypeScript")).toBe("#3178c6");
+    expect(languageColor("MadeUpLang")).toBe("#8b949e");
   });
 });
 
@@ -166,6 +172,9 @@ describe("link-card plugin", () => {
     expect(html).toContain("My title");
     expect(html).toContain('data-provider="github"');
     expect(html).toContain('data-key="stars"');
+    expect(html).toContain("link-card__icon");
+    expect(html).toContain("link-card__lang-dot");
+    expect(html).toContain("background:#3178c6");
     expect(html).toContain("42");
     expect(html).toContain("TypeScript");
   });

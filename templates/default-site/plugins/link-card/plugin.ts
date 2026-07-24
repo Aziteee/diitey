@@ -285,13 +285,7 @@ export function renderLinkCardHtml(meta: LinkCardMetadata): string {
   if (meta.degraded) classes.push("link-card--degraded");
   if (meta.provider) classes.push(`link-card--${escapeAttr(meta.provider)}`);
 
-  const extras = Object.entries(meta.extras)
-    .filter(([, value]) => value.trim() !== "")
-    .map(
-      ([key, value]) =>
-        `<span class="link-card__extra" data-key="${escapeAttr(key)}">${escapeHtml(value)}</span>`,
-    )
-    .join("");
+  const extrasBlock = renderExtras(meta.extras);
 
   const media = meta.image
     ? `<span class="link-card__media"><img class="link-card__image" src="${escapeAttr(meta.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" /></span>`
@@ -303,10 +297,6 @@ export function renderLinkCardHtml(meta: LinkCardMetadata): string {
 
   const site = meta.siteName
     ? `<span class="link-card__site">${escapeHtml(meta.siteName)}</span>`
-    : "";
-
-  const extrasBlock = extras
-    ? `<span class="link-card__extras">${extras}</span>`
     : "";
 
   return (
@@ -324,6 +314,117 @@ export function renderLinkCardHtml(meta: LinkCardMetadata): string {
     media +
     `</a>`
   );
+}
+
+function renderExtras(
+  extras: Readonly<Record<string, string>>,
+): string {
+  const preferred = ["language", "stars", "forks"] as const;
+  const seen = new Set<string>();
+  const parts: string[] = [];
+
+  for (const key of preferred) {
+    const value = extras[key]?.trim();
+    if (!value) continue;
+    seen.add(key);
+    parts.push(renderExtra(key, value));
+  }
+  for (const [key, value] of Object.entries(extras)) {
+    if (seen.has(key) || value.trim() === "") continue;
+    parts.push(renderExtra(key, value));
+  }
+  if (parts.length === 0) return "";
+  return `<span class="link-card__extras">${parts.join("")}</span>`;
+}
+
+function renderExtra(key: string, value: string): string {
+  if (key === "stars") {
+    return (
+      `<span class="link-card__extra link-card__extra--stars" data-key="stars">` +
+      `${ICON_STAR}<span class="link-card__extra-value">${escapeHtml(value)}</span>` +
+      `</span>`
+    );
+  }
+  if (key === "forks") {
+    return (
+      `<span class="link-card__extra link-card__extra--forks" data-key="forks">` +
+      `${ICON_FORK}<span class="link-card__extra-value">${escapeHtml(value)}</span>` +
+      `</span>`
+    );
+  }
+  if (key === "language") {
+    const color = languageColor(value);
+    return (
+      `<span class="link-card__extra link-card__extra--language" data-key="language">` +
+      `<span class="link-card__lang-dot" style="background:${escapeAttr(color)}" aria-hidden="true"></span>` +
+      `<span class="link-card__extra-value">${escapeHtml(value)}</span>` +
+      `</span>`
+    );
+  }
+  return (
+    `<span class="link-card__extra" data-key="${escapeAttr(key)}">` +
+    `<span class="link-card__extra-label">${escapeHtml(key)}</span>` +
+    `<span class="link-card__extra-value">${escapeHtml(value)}</span>` +
+    `</span>`
+  );
+}
+
+// Octicons-style 16px paths (MIT), inlined for static HTML.
+const ICON_STAR =
+  `<svg class="link-card__icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>`;
+
+const ICON_FORK =
+  `<svg class="link-card__icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/></svg>`;
+
+/** Subset of GitHub linguist colors; unknown languages fall back to neutral gray. */
+const LANGUAGE_COLORS: Readonly<Record<string, string>> = {
+  TypeScript: "#3178c6",
+  JavaScript: "#f1e05a",
+  Python: "#3572A5",
+  Go: "#00ADD8",
+  Rust: "#dea584",
+  Java: "#b07219",
+  "C++": "#f34b7d",
+  C: "#555555",
+  "C#": "#178600",
+  Ruby: "#701516",
+  PHP: "#4F5D95",
+  Swift: "#F05138",
+  Kotlin: "#A97BFF",
+  Dart: "#00B4AB",
+  Shell: "#89e051",
+  HTML: "#e34c26",
+  CSS: "#563d7c",
+  Vue: "#41b883",
+  Svelte: "#ff3e00",
+  Scala: "#c22d40",
+  Elixir: "#6e4a7e",
+  Haskell: "#5e5086",
+  Lua: "#000080",
+  R: "#198CE7",
+  Markdown: "#083fa1",
+  Dockerfile: "#384d54",
+  Makefile: "#427819",
+  Vim: "#199f4b",
+  Zig: "#ec915c",
+  Nim: "#ffc200",
+  OCaml: "#ef7a08",
+  Julia: "#a270ba",
+  Perl: "#0298c3",
+  Clojure: "#db5855",
+  Erlang: "#B83998",
+  "Objective-C": "#438eff",
+  Assembly: "#6E4C13",
+  PowerShell: "#012456",
+  SCSS: "#c6538c",
+  Less: "#1d365d",
+  Astro: "#ff5a03",
+  Solid: "#2c4f7c",
+  Jupyter: "#DA5B0B",
+};
+
+export function languageColor(language: string): string {
+  return LANGUAGE_COLORS[language] ?? "#8b949e";
 }
 
 function remarkLinkCard(

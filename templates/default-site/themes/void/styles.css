@@ -650,13 +650,13 @@ music-player .waveform-player,
 
   .content .link-card {
     display: flex;
-    gap: 1rem;
+    gap: 0.85rem;
     align-items: stretch;
-    margin: 1.5rem 0;
-    padding: 0.9rem 1rem;
+    margin: 1.35rem 0;
+    padding: 0.75rem 0.85rem;
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: 0.75rem;
+    border-radius: 0.65rem;
     background: color-mix(in srgb, var(--paper) 94%, var(--heading));
     color: inherit;
     text-decoration: none;
@@ -679,14 +679,14 @@ music-player .waveform-player,
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.28rem;
     min-width: 0;
   }
 
   .content .link-card__site {
     color: var(--muted);
     font-family: ui-sans-serif, system-ui, sans-serif;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     letter-spacing: 0.02em;
     text-transform: uppercase;
   }
@@ -694,7 +694,7 @@ music-player .waveform-player,
   .content .link-card__title {
     color: var(--heading);
     font-family: ui-sans-serif, system-ui, sans-serif;
-    font-size: 1rem;
+    font-size: 0.875rem;
     font-weight: 600;
     line-height: 1.35;
   }
@@ -704,8 +704,8 @@ music-player .waveform-player,
     overflow: hidden;
     color: var(--muted);
     font-family: ui-sans-serif, system-ui, sans-serif;
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: 0.75rem;
+    line-height: 1.45;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
@@ -713,26 +713,45 @@ music-player .waveform-player,
   .content .link-card__extras {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem 0.85rem;
-    margin-top: 0.15rem;
+    gap: 0.35rem 0.75rem;
+    margin-top: 0.2rem;
     color: var(--muted);
     font-family: ui-sans-serif, system-ui, sans-serif;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    line-height: 1.2;
   }
 
-  .content .link-card__extra::before {
-    content: attr(data-key) ": ";
-    color: var(--muted);
-    opacity: 0.8;
+  .content .link-card__extra {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+  }
+
+  .content .link-card__extra-label::after {
+    content: ":";
+  }
+
+  .content .link-card__icon {
+    flex: 0 0 auto;
+    display: block;
+    opacity: 0.85;
+  }
+
+  .content .link-card__lang-dot {
+    flex: 0 0 auto;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--heading) 12%, transparent);
   }
 
   .content .link-card__media {
     flex: 0 0 auto;
     align-self: center;
-    width: 4.5rem;
-    height: 4.5rem;
+    width: 3.75rem;
+    height: 3.75rem;
     overflow: hidden;
-    border-radius: 0.5rem;
+    border-radius: 0.45rem;
     background: var(--soft);
   }
 
