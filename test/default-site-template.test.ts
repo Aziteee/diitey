@@ -35,6 +35,9 @@ test("the default site template serves its home, archives, notes, and article pa
   expect(archives.status).toBe(200);
   expect(archivesHtml).toContain('href="/archives/negative-space"');
   expect(archivesHtml).toContain("Writing");
+  expect(archivesHtml).toContain("2026");
+  expect(archivesHtml).toMatch(/Jul 8/);
+  expect(archivesHtml).not.toMatch(/Jul 8, 2026/);
   expect(notes.status).toBe(200);
   expect(notesHtml).toContain("Notes");
   expect(notesHtml).toContain("第二杯咖啡之后");

@@ -2,7 +2,7 @@ import { Island, type ContentRecord, type Pagination } from "diitey";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import BackLink from "../islands/back-link.tsx";
 import { SiteFooter } from "../shared/footer.tsx";
-import { PostList } from "../shared/post-list.tsx";
+import { groupPostsByYear, PostList } from "../shared/post-list.tsx";
 
 interface ArchivesProps {
   readonly posts: readonly ContentRecord[];
@@ -10,6 +10,8 @@ interface ArchivesProps {
 }
 
 export default function Archives({ posts, pagination }: ArchivesProps) {
+  const years = groupPostsByYear(posts);
+
   return (
     <main class="page-shell">
       <Island name="back-link" component={BackLink} props={{}} />
@@ -18,7 +20,26 @@ export default function Archives({ posts, pagination }: ArchivesProps) {
         <h1 id="archives-heading" class="section-title mb-3">
           Writing
         </h1>
-        <PostList posts={posts} />
+        {years.length === 0 ? (
+          <PostList posts={posts} />
+        ) : (
+          <div class="flex flex-col gap-10">
+            {years.map(({ year, posts: yearPosts }) => (
+              <section
+                key={year}
+                aria-labelledby={`archives-year-${year}`}
+              >
+                <h2
+                  id={`archives-year-${year}`}
+                  class="mb-1 font-sans text-sm font-medium tabular-nums tracking-[0.04em] text-neutral-500 dark:text-neutral-500"
+                >
+                  {year}
+                </h2>
+                <PostList posts={yearPosts} dateStyle="month-day" />
+              </section>
+            ))}
+          </div>
+        )}
       </section>
 
       {pagination.prevHref || pagination.nextHref ? (

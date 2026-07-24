@@ -1,14 +1,18 @@
 import type { ContentRecord } from "diitey";
-import { formatDate } from "./date.ts";
+import { formatDate, formatMonthDay, yearOf } from "./date.ts";
 
 export function PostList({
   posts,
+  dateStyle = "full",
 }: {
   readonly posts: readonly ContentRecord[];
+  readonly dateStyle?: "full" | "month-day";
 }) {
   if (posts.length === 0) {
     return <p class="muted">尚无内容。</p>;
   }
+
+  const format = dateStyle === "month-day" ? formatMonthDay : formatDate;
 
   return (
     <ol class="list-reset">
@@ -22,7 +26,7 @@ export function PostList({
               datetime={post.created}
               class="text-sm tabular-nums text-neutral-500 transition-colors duration-300 group-hover:text-neutral-800 group-focus-visible:text-neutral-800 dark:text-neutral-500 dark:group-hover:text-neutral-200 dark:group-focus-visible:text-neutral-200"
             >
-              {formatDate(post.created)}
+              {format(post.created)}
             </time>
             <span
               data-vt-title={post.id}
@@ -35,4 +39,22 @@ export function PostList({
       ))}
     </ol>
   );
+}
+
+export function groupPostsByYear(
+  posts: readonly ContentRecord[],
+): readonly { readonly year: number; readonly posts: readonly ContentRecord[] }[] {
+  const groups = new Map<number, ContentRecord[]>();
+  for (const post of posts) {
+    const year = yearOf(post.created);
+    const bucket = groups.get(year);
+    if (bucket) {
+      bucket.push(post);
+    } else {
+      groups.set(year, [post]);
+    }
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([year, yearPosts]) => ({ year, posts: yearPosts }));
 }
