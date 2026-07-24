@@ -2,6 +2,9 @@
 id: "void-quiet-tools"
 created: "2026-06-21"
 title: "安静的工具"
+tags:
+  - tools
+  - writing
 ---
 
 好的工具不急着证明自己。它保留清晰的边界，在需要时出现，在任务完成后退回背景。

@@ -17,7 +17,7 @@ export default function Archives({ posts, pagination }: ArchivesProps) {
       <Island name="back-link" component={BackLink} props={{}} />
 
       <section class="mt-14" aria-labelledby="archives-heading">
-        <h1 id="archives-heading" class="section-title mb-3">
+        <h1 id="archives-heading" class="section-title mb-10">
           Writing
         </h1>
         {years.length === 0 ? (
@@ -31,7 +31,7 @@ export default function Archives({ posts, pagination }: ArchivesProps) {
               >
                 <h2
                   id={`archives-year-${year}`}
-                  class="mb-1 font-sans text-sm font-medium tabular-nums tracking-[0.04em] text-neutral-500 dark:text-neutral-500"
+                  class="mb-1 font-serif text-base font-medium tabular-nums tracking-[-0.01em] text-neutral-600 dark:text-neutral-400"
                 >
                   {year}
                 </h2>

@@ -1,6 +1,7 @@
 import { Island, type ContentRecord } from "diitey";
 import { formatDate } from "../shared/date.ts";
 import { SiteFooter } from "../shared/footer.tsx";
+import { postTags, tagHref } from "../shared/tags.ts";
 import ArticleScrollNav from "../islands/article-scroll-nav.tsx";
 import BackLink from "../islands/back-link.tsx";
 import Comments from "../islands/comments.tsx";
@@ -13,6 +14,7 @@ interface PostProps {
 
 export default function Post({ post }: PostProps) {
   const title = String(post.attributes.title);
+  const tags = postTags(post);
 
   return (
     <main class="page-shell post-page">
@@ -29,12 +31,24 @@ export default function Post({ post }: PostProps) {
           >
             {title}
           </h1>
-          <time
-            datetime={post.created}
-            class="mt-4 block text-xs tracking-[0.04em] tabular-nums text-neutral-500"
-          >
-            {formatDate(post.created)}
-          </time>
+          <p class="mt-4 m-0 flex flex-wrap items-baseline gap-x-0 text-xs tracking-[0.04em] text-neutral-500">
+            <time datetime={post.created} class="tabular-nums">
+              {formatDate(post.created)}
+            </time>
+            {tags.map((tag) => (
+              <>
+                <span class="mx-1.5" aria-hidden="true">
+                  ·
+                </span>
+                <a
+                  href={tagHref(tag)}
+                  class="text-inherit no-underline transition-colors duration-300 hover:text-neutral-800 focus-visible:text-neutral-800 focus-visible:outline-none dark:hover:text-neutral-200 dark:focus-visible:text-neutral-200"
+                >
+                  {tag}
+                </a>
+              </>
+            ))}
+          </p>
         </header>
         <div
           id="post-content"

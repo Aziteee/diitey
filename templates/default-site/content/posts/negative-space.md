@@ -2,6 +2,9 @@
 id: "void-negative-space"
 created: "2026-07-08"
 title: "留白不是空白"
+tags:
+  - design
+  - writing
 ---
 
 留白不是没有内容。它让内容周围的空气变得可见，也让句子有地方停下来。

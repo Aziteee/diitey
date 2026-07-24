@@ -2,6 +2,9 @@
 id: "void-first-entry"
 created: "2026-05-03"
 title: "第一条记录"
+tags:
+  - writing
+  - intro
 ---
 
 这是 `void` 的第一条记录。

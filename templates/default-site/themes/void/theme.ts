@@ -39,6 +39,7 @@ export default defineTheme({
           schema: {
             title: "string",
             draft: "boolean?",
+            tags: "string[]?",
           },
         }),
         notes: collection({
@@ -113,6 +114,14 @@ export default defineTheme({
             post: {
               collection: "posts",
               match: "posts/:slug.md",
+            },
+          }),
+        ),
+        route(
+          "/tags",
+          page("tags", {
+            posts: {
+              collection: "posts",
             },
           }),
         ),
